@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth URI Test</title>
+</head>
+<body>
+    <h1>OAuth Redirect URI Test</h1>
+    <p>Expected URI: <code>http://localhost:3000/auth/callback.html</code></p>
+    <p>Test this URI: <a href="http://localhost:3000/auth/callback.html" target="_blank">http://localhost:3000/auth/callback.html</a></p>
+    
+    <h2>Add EXACTLY this URI to Google Cloud Console:</h2>
+    <div style="background: #f5f5f5; padding: 10px; border: 1px solid #ccc; font-family: monospace;">
+        http://localhost:3000/auth/callback.html
+    </div>
+    
+    <h2>Steps:</h2>
+    <ol>
+        <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console Credentials</a></li>
+        <li>Find your OAuth 2.0 Client ID</li>
+        <li>Click Edit (pencil icon)</li>
+        <li>In "Authorized redirect URIs", add the URI above</li>
+        <li>Remove any old URIs like <code>http://localhost:3000/auth/callback</code></li>
+        <li>Click Save</li>
+        <li>Wait 2 minutes for changes to propagate</li>
+    </ol>
+</body>
+</html>
