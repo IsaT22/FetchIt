@@ -1,6 +1,6 @@
 // FetchIt AI Agent - JavaScript implementation based on Python agent
 import localEmbeddingService from './localEmbeddingService';
-import fileStorageService from './fileStorageService';
+// import fileStorageService from './fileStorageService';
 
 class FetchItAIAgent {
   constructor() {

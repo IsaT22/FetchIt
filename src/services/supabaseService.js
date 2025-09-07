@@ -79,7 +79,7 @@ class SupabaseService {
     if (!this.isAvailable()) return false;
     
     try {
-      const { data, error } = await this.supabase
+      const { error } = await this.supabase
         .from('file_metadata')
         .upsert({
           file_id: fileId,
@@ -106,7 +106,7 @@ class SupabaseService {
     if (!this.isAvailable()) return false;
     
     try {
-      const { data, error } = await this.supabase
+      const { error } = await this.supabase
         .from('conversations')
         .upsert({
           conversation_id: conversation.id,
@@ -148,7 +148,7 @@ class SupabaseService {
     if (!this.isAvailable()) return false;
     
     try {
-      const { data, error } = await this.supabase
+      const { error } = await this.supabase
         .from('search_analytics')
         .insert({
           query: query,
@@ -171,7 +171,7 @@ class SupabaseService {
     if (!this.isAvailable()) return false;
     
     try {
-      const { data, error } = await this.supabase
+      const { error } = await this.supabase
         .from('user_preferences')
         .upsert({
           user_id: (await this.supabase.auth.getUser()).data.user?.id,

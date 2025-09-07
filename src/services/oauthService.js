@@ -521,4 +521,5 @@ class OAuthService {
   }
 }
 
-export default new OAuthService();
+const oauthService = new OAuthService();
+export default oauthService;
