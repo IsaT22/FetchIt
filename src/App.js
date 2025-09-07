@@ -182,38 +182,38 @@ function App() {
     }
   };
 
-  const disconnectPlatform = async (connectionId) => {
-    console.log(`🔌 Disconnecting platform: ${connectionId}`);
-    
-    try {
-      // Remove stored credentials and tokens
-      const encryptionService = (await import('./services/encryptionService')).default;
-      encryptionService.removeCredentials(connectionId);
-      
-      // Remove OAuth tokens
-      localStorage.removeItem(`tokens_${connectionId}`);
-      localStorage.removeItem(`connection_${connectionId}`);
-      
-      console.log(`✅ Removed credentials and tokens for ${connectionId}`);
-      
-      // Update connection state
-      setConnections(prev => ({
-        ...prev,
-        [connectionId]: {
-          ...prev[connectionId],
-          connected: false,
-          enabled: false
-        }
-      }));
-      
-      // Save updated connections to storage
-      saveConnections();
-      
-      console.log(`✅ Platform ${connectionId} disconnected successfully`);
-    } catch (error) {
-      console.error(`❌ Error disconnecting ${connectionId}:`, error);
-    }
-  };
+  // const disconnectPlatform = async (connectionId) => {
+  //   console.log(`🔌 Disconnecting platform: ${connectionId}`);
+  //   
+  //   try {
+  //     // Remove stored credentials and tokens
+  //     const encryptionService = (await import('./services/encryptionService')).default;
+  //     encryptionService.removeCredentials(connectionId);
+  //     
+  //     // Remove OAuth tokens
+  //     localStorage.removeItem(`tokens_${connectionId}`);
+  //     localStorage.removeItem(`connection_${connectionId}`);
+  //     
+  //     console.log(`✅ Removed credentials and tokens for ${connectionId}`);
+  //     
+  //     // Update connection state
+  //     setConnections(prev => ({
+  //       ...prev,
+  //       [connectionId]: {
+  //         ...prev[connectionId],
+  //         connected: false,
+  //         enabled: false
+  //       }
+  //     }));
+  //     
+  //     // Save updated connections to storage
+  //     saveConnections();
+  //     
+  //     console.log(`✅ Platform ${connectionId} disconnected successfully`);
+  //   } catch (error) {
+  //     console.error(`❌ Error disconnecting ${connectionId}:`, error);
+  //   }
+  // };
 
   // Load saved user data and connections on app start
   useEffect(() => {
@@ -250,7 +250,7 @@ function App() {
       }
     };
     loadUserData();
-  }, []);
+  }, [connections]);
 
   // Removed guest mode handlers - direct access to chat
 
@@ -302,12 +302,12 @@ function App() {
   // Auto-save conversations when they change
   useEffect(() => {
     saveConversations();
-  }, [conversations, activeConversationId]);
+  }, [conversations, activeConversationId, saveConversations]);
 
   // Auto-save connections when they change
   useEffect(() => {
     saveConnections();
-  }, [connections]);
+  }, [connections, saveConnections]);
 
   // Initialize services and load user data
   useEffect(() => {
