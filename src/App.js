@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
 // import Sidebar from './components/Sidebar';
@@ -289,25 +289,25 @@ function App() {
   };
 
   // Save conversations to storage
-  const saveConversations = () => {
+  const saveConversations = useCallback(() => {
     storageService.setItem('fetchit_conversations', JSON.stringify(conversations));
     storageService.setItem('fetchit_active_conversation', activeConversationId.toString());
-  };
+  }, [conversations, activeConversationId]);
 
   // Save connections to storage
-  const saveConnections = () => {
+  const saveConnections = useCallback(() => {
     storageService.setItem('fetchit_connections', JSON.stringify(connections));
-  };
+  }, [connections]);
 
   // Auto-save conversations when they change
   useEffect(() => {
     saveConversations();
-  }, [conversations, activeConversationId, saveConversations]);
+  }, [saveConversations]);
 
   // Auto-save connections when they change
   useEffect(() => {
     saveConnections();
-  }, [connections, saveConnections]);
+  }, [saveConnections]);
 
   // Initialize services and load user data
   useEffect(() => {
