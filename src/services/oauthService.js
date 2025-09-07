@@ -6,6 +6,7 @@ class OAuthService {
     this.clientConfigs = {
       googleDrive: {
         clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        clientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET,
         redirectUri: `${window.location.origin}/auth/callback/index.html`,
         scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email',
         authUrl: 'https://accounts.google.com/o/oauth2/v2/auth'
