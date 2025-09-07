@@ -258,6 +258,16 @@ class OAuthService {
     const clientSecretKey = platformId === 'googleDrive' ? 'REACT_APP_GOOGLE_CLIENT_SECRET' : `REACT_APP_${platformId.toUpperCase()}_CLIENT_SECRET`;
     const clientSecret = process.env[clientSecretKey];
     
+    // Debug: Log all environment variables for troubleshooting
+    console.log('🔍 Environment variables debug:', {
+      platformId,
+      clientSecretKey,
+      envValue: process.env[clientSecretKey] ? 'SET' : 'NOT_SET',
+      allEnvKeys: Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')),
+      googleClientId: process.env.REACT_APP_GOOGLE_CLIENT_ID ? 'SET' : 'NOT_SET',
+      googleClientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT_SET'
+    });
+
     // For Notion, we'll handle OAuth without client secret for now (PKCE flow)
     // GitHub and Canva require client secret for token exchange
     if (!clientSecret && platformId !== 'notion') {
