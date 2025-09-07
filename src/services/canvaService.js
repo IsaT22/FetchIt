@@ -247,4 +247,5 @@ class CanvaService {
   }
 }
 
-export default new CanvaService();
+const canvaService = new CanvaService();
+export default canvaService;

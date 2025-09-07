@@ -18,11 +18,11 @@ import chromaService from './services/chromaService';
 import aiAgentService from './services/aiAgentService';
 import embeddingService from './services/embeddingService';
 import storageService from './services/storageService';
-import encryptionService from './services/encryptionService';
+// import encryptionService from './services/encryptionService';
 import llmService from './services/llmService';
-import supabaseService from './services/supabaseService';
+// import supabaseService from './services/supabaseService';
 import userStorageService from './services/userStorageService';
-import canvaService from './services/canvaService';
+// import canvaService from './services/canvaService';
 
 function App() {
   const navigate = useNavigate();
@@ -77,34 +77,34 @@ function App() {
       setCurrentView('chat');
     }
   }, [location.pathname]);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Get active conversation
   const activeConversation = conversations.find(conv => conv.id === activeConversationId) || conversations[0];
   
   // Conversation management functions
-  const createNewConversation = () => {
-    const newConversation = {
-      id: Date.now(),
-      title: 'New Chat',
-      messages: [],
-      createdAt: new Date().toISOString()
-    };
-    setConversations(prev => [newConversation, ...prev]);
-    setActiveConversationId(newConversation.id);
-    
-    // Reset any processing state when creating new conversation
-    setIsProcessing(false);
-  };
+  // const createNewConversation = () => {
+  //   const newConversation = {
+  //     id: Date.now(),
+  //     title: 'New Chat',
+  //     messages: [],
+  //     createdAt: new Date().toISOString()
+  //   };
+  //   setConversations(prev => [newConversation, ...prev]);
+  //   setActiveConversationId(newConversation.id);
+  //   
+  //   // Reset any processing state when creating new conversation
+  //   setIsProcessing(false);
+  // };
   
-  const deleteConversation = (id) => {
-    if (conversations.length <= 1) return;
-    setConversations(prev => prev.filter(conv => conv.id !== id));
-    if (activeConversationId === id) {
-      setActiveConversationId(conversations.find(conv => conv.id !== id).id);
-    }
-  };
+  // const deleteConversation = (id) => {
+  //   if (conversations.length <= 1) return;
+  //   setConversations(prev => prev.filter(conv => conv.id !== id));
+  //   if (activeConversationId === id) {
+  //     setActiveConversationId(conversations.find(conv => conv.id !== id).id);
+  //   }
+  // };
   
   const updateConversationTitle = (id, title) => {
     setConversations(prev => prev.map(conv => 

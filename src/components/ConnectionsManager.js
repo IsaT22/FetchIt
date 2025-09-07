@@ -47,10 +47,10 @@ const ConnectionsManager = ({ connections, onConnect, onDisconnect, onViewChange
     window.location.hash = `#connections?platform=${platform.id}`;
   };
 
-  const handleSetupComplete = () => {
-    setCurrentView('main');
-    setSelectedPlatform(null);
-  };
+  // const handleSetupComplete = () => {
+  //   setCurrentView('main');
+  //   setSelectedPlatform(null);
+  // };
 
   const handleBackToMain = () => {
     onViewChange('chat');

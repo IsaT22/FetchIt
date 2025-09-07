@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { platformRegistry, getAllCategories, searchPlatforms } from '../services/platformRegistry';
+import { getAllCategories, searchPlatforms } from '../services/platformRegistry';
 
 const PlatformBrowser = ({ onSelectPlatform, onBack }) => {
   const [searchQuery, setSearchQuery] = useState('');

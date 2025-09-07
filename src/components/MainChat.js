@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ConnectionsPanel from './ConnectionsPanel';
+// import ConnectionsPanel from './ConnectionsPanel';
 import chromaService from '../services/chromaService';
 
 const MainChat = ({ 
@@ -295,14 +295,14 @@ const MainChat = ({
     // TODO: Implement platform-specific file pickers
   };
 
-  const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  // const formatTimestamp = (timestamp) => {
+  //   return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // };
 
 
   const renderMessage = (message) => {
     const isUser = message.type === 'user';
-    const timestamp = message.timestamp;
+    // const timestamp = message.timestamp;
     
     return (
       <div key={message.id} className={`chat-message ${isUser ? 'user-message' : 'assistant-message'}`}>
