@@ -268,9 +268,9 @@ class OAuthService {
       googleClientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT_SET'
     });
 
-    // For Notion and Google Drive, we'll handle OAuth without client secret for now (PKCE flow)
+    // For Notion and Google Drive, we'll handle OAuth without client secret (PKCE flow)
     // GitHub and Canva require client secret for token exchange
-    if (!clientSecret && !['notion', 'googleDrive'].includes(platformId)) {
+    if (!clientSecret && platformId !== 'notion' && platformId !== 'googleDrive') {
       console.error(`Missing client secret for ${platformId}:`, {
         platformId,
         clientSecretKey,
