@@ -47,7 +47,7 @@ class OAuthService {
         clientId: process.env.REACT_APP_CANVA_CLIENT_ID,
         clientSecret: process.env.REACT_APP_CANVA_CLIENT_SECRET,
         redirectUri: `${window.location.origin}/auth/callback/index.html`,
-        scope: 'design:meta:read design:content:read',
+        scope: 'design:read design:content:read',
         authUrl: 'https://www.canva.com/api/oauth/authorize',
         usePKCE: true
       }
