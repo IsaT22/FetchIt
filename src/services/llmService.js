@@ -19,11 +19,31 @@ class LLMService {
       const openaiKey = process.env.REACT_APP_OPENAI_API_KEY;
       const cohereKey = process.env.REACT_APP_COHERE_API_KEY;
       const geminiKey = process.env.REACT_APP_GEMINI_API_KEY;
+      const groqKey = process.env.REACT_APP_GROQ_API_KEY;
+      const huggingfaceKey = process.env.REACT_APP_HUGGINGFACE_API_KEY;
       
-      // Initialize Gemini as primary provider
+      // Initialize Groq as primary provider (ultra-fast inference)
+      if (groqKey && groqKey !== 'your_groq_api_key_here') {
+        this.groqKey = groqKey;
+        console.log('Groq API initialized as primary LLM (ultra-fast)');
+      }
+      
+      // Initialize Hugging Face as secondary provider
+      if (huggingfaceKey && huggingfaceKey !== 'your_huggingface_api_key_here') {
+        this.huggingfaceKey = huggingfaceKey;
+        console.log('Hugging Face API initialized as secondary LLM');
+      }
+      
+      // Initialize Cohere as tertiary provider
+      if (cohereKey && cohereKey !== 'your_cohere_api_key_here') {
+        this.cohereKey = cohereKey;
+        console.log('Cohere API key configured');
+      }
+      
+      // Initialize Gemini as backup
       if (geminiKey && geminiKey !== 'your_gemini_api_key_here') {
         this.gemini = new GoogleGenerativeAI(geminiKey);
-        console.log('Google Gemini initialized as primary LLM');
+        console.log('Google Gemini initialized as backup');
       }
       
       if (openaiKey && openaiKey !== 'your_openai_api_key_here') {
@@ -31,19 +51,16 @@ class LLMService {
           apiKey: openaiKey,
           dangerouslyAllowBrowser: true
         });
-        console.log('OpenAI GPT-4 initialized as backup');
-      }
-      
-      if (cohereKey && cohereKey !== 'your_cohere_api_key_here') {
-        this.cohereKey = cohereKey;
-        console.log('Cohere API key configured as fallback');
+        console.log('OpenAI GPT-4 initialized as final fallback');
       }
       
       this.isInitialized = true;
-      console.log('Services initialized:', {
+      console.log('Enhanced LLM services initialized:', {
+        groq: !!this.groqKey,
+        huggingface: !!this.huggingfaceKey,
+        cohere: !!this.cohereKey,
         gemini: !!this.gemini,
-        openai: !!this.openai,
-        cohere: !!this.cohereKey
+        openai: !!this.openai
       });
       
     } catch (error) {
@@ -54,7 +71,7 @@ class LLMService {
 
   // Check if LLM service is available
   isAvailable() {
-    return this.isInitialized && (this.fetchitAgent?.isAvailable() || this.gemini || this.openai || this.cohereKey);
+    return this.isInitialized && (this.fetchitAgent?.isAvailable() || this.groqKey || this.huggingfaceKey || this.cohereKey || this.gemini || this.openai);
   }
 
   // Generate intelligent response based on query and file contents
@@ -114,12 +131,30 @@ class LLMService {
       const systemPrompt = this.buildSystemPrompt();
       const userPrompt = this.buildUserPrompt(query, fileContents, fileNames);
       
-      // Try Cohere first (configured provider)
+      // Try Groq first (ultra-fast inference)
+      if (this.groqKey) {
+        try {
+          return await this.generateGroqResponse(systemPrompt, userPrompt);
+        } catch (groqError) {
+          console.error('Groq error, trying Hugging Face:', groqError);
+        }
+      }
+      
+      // Try Hugging Face second
+      if (this.huggingfaceKey) {
+        try {
+          return await this.generateHuggingFaceResponse(systemPrompt, userPrompt);
+        } catch (hfError) {
+          console.error('Hugging Face error, trying Cohere:', hfError);
+        }
+      }
+      
+      // Try Cohere third
       if (this.cohereKey) {
         try {
           return await this.generateCohereResponse(systemPrompt, userPrompt);
         } catch (cohereError) {
-          console.error('Cohere error, trying OpenAI:', cohereError);
+          console.error('Cohere error, trying Gemini:', cohereError);
         }
       }
       
@@ -142,7 +177,7 @@ class LLMService {
         }
       }
       
-      // Try Gemini as final external fallback
+      // Try Gemini as backup
       if (this.gemini) {
         try {
           const model = this.gemini.getGenerativeModel({ model: 'gemini-pro' });
@@ -162,6 +197,85 @@ class LLMService {
       console.error('Error generating LLM response:', error);
       return this.getFallbackResponse(query, fileContents, fileNames);
     }
+  }
+
+  // Generate response using Groq API (ultra-fast inference)
+  async generateGroqResponse(systemPrompt, userPrompt) {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.groqKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-70b-versatile', // Fast and capable model
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+
+  // Generate response using Cohere
+  async generateCohereResponse(systemPrompt, userPrompt) {
+    const response = await fetch('https://api.cohere.ai/v1/chat', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.cohereKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'command-r-plus',
+        message: userPrompt,
+        preamble: systemPrompt,
+        max_tokens: 800,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cohere API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.text.trim();
+  }
+
+  // Generate response using Hugging Face Inference API
+  async generateHuggingFaceResponse(systemPrompt, userPrompt) {
+    const response = await fetch('https://api-inference.huggingface.co/models/meta-llama/Llama-2-7b-chat-hf', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.huggingfaceKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        inputs: `<s>[INST] <<SYS>>\n${systemPrompt}\n<</SYS>>\n\n${userPrompt} [/INST]`,
+        parameters: {
+          max_new_tokens: 800,
+          temperature: 0.7,
+          do_sample: true,
+          return_full_text: false
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Hugging Face API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data[0]?.generated_text?.trim() || 'Unable to generate response';
   }
 
   // Build system prompt for the AI

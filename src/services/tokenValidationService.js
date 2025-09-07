@@ -162,6 +162,11 @@ class TokenValidationService {
     localStorage.removeItem(`tokens_${platform}`);
     console.log(`Cleared ${platform} tokens`);
   }
+
+  // Validate and refresh token (compatibility method for driveService)
+  async validateAndRefreshToken() {
+    return await this.validateGoogleDriveTokens();
+  }
 }
 
 // Create singleton instance

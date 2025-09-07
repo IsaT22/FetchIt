@@ -1,8 +1,8 @@
 // Local Embedding Service - Uses Transformers.js for client-side embeddings
 import { pipeline, env } from '@xenova/transformers';
 
-// Disable remote models for privacy/offline use
-env.allowRemoteModels = false;
+// Allow remote models for initial download, then cache locally
+env.allowRemoteModels = true;
 env.allowLocalModels = true;
 
 class LocalEmbeddingService {
@@ -28,7 +28,7 @@ class LocalEmbeddingService {
       console.log('Local embedding service initialized with', this.modelName);
       
     } catch (error) {
-      console.warn('Local embedding service not available - using fallback mode');
+      console.error('Local embedding service failed to initialize:', error);
       this.isInitialized = false;
     }
   }

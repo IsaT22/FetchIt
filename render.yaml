@@ -1,0 +1,51 @@
+services:
+  # Static site for React app
+  - type: web
+    name: fetchit-frontend
+    env: static
+    buildCommand: npm run build
+    staticPublishPath: ./build
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_OPENAI_API_KEY
+        sync: false
+      - key: REACT_APP_COHERE_API_KEY
+        sync: false
+      - key: REACT_APP_GOOGLE_CLIENT_ID
+        value: 748384977791-rb0l7b3jokgdr1iotmsb34u447n999n1.apps.googleusercontent.com
+      - key: REACT_APP_NOTION_CLIENT_ID
+        value: 267d872b-594c-80d7-bf5c-0037e56e3482
+      - key: REACT_APP_GITHUB_CLIENT_ID
+        value: Ov23liTBrYX7eH8f3FTf
+      - key: REACT_APP_GITHUB_CLIENT_SECRET
+        sync: false
+      - key: REACT_APP_CANVA_CLIENT_ID
+        value: OC-AZkjMkkTKUs-
+      - key: REACT_APP_CANVA_CLIENT_SECRET
+        sync: false
+      - key: REACT_APP_CHROMA_API_KEY
+        sync: false
+      - key: REACT_APP_SUPABASE_URL
+        sync: false
+      - key: REACT_APP_SUPABASE_ANON_KEY
+        sync: false
+
+  # Web service for OAuth endpoints
+  - type: web
+    name: fetchit-oauth-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: GITHUB_CLIENT_ID
+        value: Ov23liTBrYX7eH8f3FTf
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: CANVA_CLIENT_ID
+        value: OC-AZkjMkkTKUs-
+      - key: CANVA_CLIENT_SECRET
+        sync: false

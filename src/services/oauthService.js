@@ -6,7 +6,7 @@ class OAuthService {
     this.clientConfigs = {
       googleDrive: {
         clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-        redirectUri: 'http://localhost:3000/auth/callback.html',
+        redirectUri: `${window.location.origin}/auth/callback/index.html`,
         scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email',
         authUrl: 'https://accounts.google.com/o/oauth2/v2/auth'
       },
@@ -22,44 +22,44 @@ class OAuthService {
         scope: 'files.content.read files.content.write account_info.read',
         authUrl: 'https://www.dropbox.com/oauth2/authorize'
       },
-      github: {
-        clientId: process.env.REACT_APP_GITHUB_CLIENT_ID,
-        redirectUri: `${window.location.origin}/auth/callback/github`,
-        scope: 'repo user:email',
-        authUrl: 'https://github.com/login/oauth/authorize'
-      },
-      slack: {
-        clientId: process.env.REACT_APP_SLACK_CLIENT_ID,
-        redirectUri: `${window.location.origin}/auth/callback/slack`,
-        scope: 'channels:read files:read groups:read im:read mpim:read users:read',
-        authUrl: 'https://slack.com/oauth/v2/authorize'
-      },
       gmail: {
         clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
+        clientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET,
         redirectUri: `${window.location.origin}/auth/callback/gmail`,
         scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/userinfo.email',
         authUrl: 'https://accounts.google.com/o/oauth2/v2/auth'
       },
-      figma: {
-        clientId: process.env.REACT_APP_FIGMA_CLIENT_ID,
-        redirectUri: `${window.location.origin}/auth/callback/figma`,
-        scope: 'file_read',
-        authUrl: 'https://www.figma.com/oauth'
+      notion: {
+        clientId: process.env.REACT_APP_NOTION_CLIENT_ID,
+        clientSecret: process.env.REACT_APP_NOTION_CLIENT_SECRET,
+        redirectUri: `${window.location.origin}/auth/callback/index.html`,
+        scope: '',
+        authUrl: 'https://api.notion.com/v1/oauth/authorize'
       },
-      trello: {
-        clientId: process.env.REACT_APP_TRELLO_CLIENT_ID,
-        redirectUri: `${window.location.origin}/auth/callback/trello`,
-        scope: 'read',
-        authUrl: 'https://trello.com/1/authorize'
+      github: {
+        clientId: process.env.REACT_APP_GITHUB_CLIENT_ID,
+        clientSecret: process.env.REACT_APP_GITHUB_CLIENT_SECRET,
+        redirectUri: `${window.location.origin}/auth/callback/index.html`,
+        scope: 'repo user',
+        authUrl: 'https://github.com/login/oauth/authorize'
+      },
+      canva: {
+        clientId: process.env.REACT_APP_CANVA_CLIENT_ID,
+        clientSecret: process.env.REACT_APP_CANVA_CLIENT_SECRET,
+        redirectUri: `${window.location.origin}/auth/callback/index.html`,
+        scope: 'design:meta:read design:content:read',
+        authUrl: 'https://www.canva.com/api/oauth/authorize',
+        usePKCE: true
       }
     };
   }
 
   // Generate secure state parameter for OAuth flow
-  generateState() {
+  generateState(platformId) {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    const randomString = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return `${platformId}_${randomString}`;
   }
 
   // Store state securely for verification
@@ -90,6 +90,31 @@ class OAuthService {
     }
   }
 
+  // Generate PKCE code verifier and challenge
+  generatePKCE() {
+    // Generate code verifier (43-128 characters)
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    const codeVerifier = btoa(String.fromCharCode.apply(null, array))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '')
+      .substring(0, 43);
+    
+    // Generate code challenge (SHA256 hash of verifier)
+    const encoder = new TextEncoder();
+    const data = encoder.encode(codeVerifier);
+    
+    return crypto.subtle.digest('SHA-256', data).then(hash => {
+      const codeChallenge = btoa(String.fromCharCode.apply(null, new Uint8Array(hash)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+      
+      return { codeVerifier, codeChallenge };
+    });
+  }
+
   // Initiate OAuth flow
   async initiateOAuth(platformId) {
     const config = this.clientConfigs[platformId];
@@ -97,23 +122,17 @@ class OAuthService {
       throw new Error(`OAuth configuration not found for platform: ${platformId}`);
     }
 
-    console.log('🔍 Google Client ID check:', {
-      clientId: config.clientId,
-      hasClientId: !!config.clientId,
-      envVar: process.env.REACT_APP_GOOGLE_CLIENT_ID
-    });
-
     if (!config.clientId) {
-      console.error(`❌ OAuth Error: Missing Google Client ID`);
+      const platformName = platformId.charAt(0).toUpperCase() + platformId.slice(1);
+      console.error(`❌ OAuth Error: Missing ${platformName} Client ID`);
       console.error(`📋 To fix this:`);
-      console.error(`1. Go to Google Cloud Console: https://console.cloud.google.com/`);
-      console.error(`2. Create OAuth 2.0 credentials`);
-      console.error(`3. Add redirect URI: http://localhost:3000/auth/callback.html`);
-      console.error(`4. Create .env file with: REACT_APP_GOOGLE_CLIENT_ID=your_client_id`);
-      throw new Error(`Google OAuth not configured. Check console for setup instructions.`);
+      console.error(`1. Configure OAuth credentials for ${platformName}`);
+      console.error(`2. Add redirect URI: ${config.redirectUri}`);
+      console.error(`3. Add to .env file: REACT_APP_${platformId.toUpperCase()}_CLIENT_ID=your_client_id`);
+      throw new Error(`${platformName} OAuth not configured. Check console for setup instructions.`);
     }
 
-    const state = this.generateState();
+    const state = this.generateState(platformId);
     this.storeState(platformId, state);
 
     const params = new URLSearchParams({
@@ -121,32 +140,54 @@ class OAuthService {
       redirect_uri: config.redirectUri,
       scope: config.scope,
       response_type: 'code',
-      state: state,
-      access_type: 'offline', // For refresh tokens
-      prompt: 'consent' // Force consent screen
+      state: state
     });
 
+    // Add PKCE parameters for Canva BEFORE setting other parameters
+    if (config.usePKCE && platformId === 'canva') {
+      console.log('🔐 Generating PKCE parameters for Canva...');
+      const pkce = await this.generatePKCE();
+      // Store code verifier for later use
+      localStorage.setItem(`pkce_verifier_${platformId}`, pkce.codeVerifier);
+      params.set('code_challenge', pkce.codeChallenge);
+      params.set('code_challenge_method', 'S256');
+      console.log('✅ PKCE parameters added:', {
+        code_challenge: pkce.codeChallenge.substring(0, 10) + '...',
+        code_challenge_method: 'S256'
+      });
+    }
+
+    // Add platform-specific parameters
+    if (platformId === 'googleDrive' || platformId === 'gmail') {
+      params.set('access_type', 'offline');
+      params.set('prompt', 'consent');
+    } else if (platformId === 'notion') {
+      params.set('owner', 'user');
+    } else if (platformId === 'github') {
+      params.set('allow_signup', 'true');
+    } else if (platformId === 'canva') {
+      // Remove response_mode as it's not needed with PKCE
+      console.log('🎨 Canva OAuth parameters configured');
+    }
+
     const authUrl = `${config.authUrl}?${params.toString()}`;
-    console.log('🚀 Opening OAuth popup with URL:', authUrl);
-    console.log('🔍 Redirect URI being used:', config.redirectUri);
-    console.log('🔍 Redirect URI length:', config.redirectUri.length);
-    console.log('🔍 Redirect URI bytes:', [...config.redirectUri].map(c => c.charCodeAt(0)));
     
-    // Open OAuth flow in popup window
+    console.log(`🔗 Opening OAuth popup for ${platformId}:`, authUrl);
+    
+    // Open OAuth flow in popup window with immediate focus
     const popup = window.open(
       authUrl,
       `oauth_${platformId}`,
-      'width=600,height=700,scrollbars=yes,resizable=yes'
+      'width=600,height=700,scrollbars=yes,resizable=yes,location=yes,status=yes'
     );
     
-    console.log('🔍 Popup window object:', popup);
-    
-    if (!popup) {
-      throw new Error('Popup was blocked by browser. Please allow popups for this site and try again.');
+    // Ensure popup has focus to prevent blocking
+    if (popup) {
+      popup.focus();
     }
-    
-    if (popup.closed) {
-      throw new Error('Popup window failed to open. Check if popups are blocked.');
+
+    if (!popup) {
+      throw new Error('Popup blocked by browser. Please allow popups for this site and try again.');
     }
 
     return new Promise((resolve, reject) => {
@@ -157,39 +198,38 @@ class OAuthService {
         }
       }, 1000);
 
-      // Listen for messages from popup
+      // Listen for messages from the popup (OAuth callback)
       const messageHandler = (event) => {
-        console.log('Received message from popup:', event.data);
-        
-        if (event.origin !== window.location.origin) {
-          console.warn('Message from wrong origin:', event.origin);
-          return;
-        }
+        if (event.origin !== window.location.origin) return;
         
         if (event.data.type === 'OAUTH_SUCCESS') {
-          console.log('OAuth success received:', event.data);
           clearInterval(checkClosed);
           window.removeEventListener('message', messageHandler);
           popup.close();
-          resolve(event.data);
+          
+          console.log(`🚀 Processing OAuth success for ${platformId} immediately...`);
+          
+          // Process the authorization code immediately to prevent expiration
+          // Use setTimeout to ensure popup closes first, then process immediately
+          setTimeout(() => {
+            this.exchangeCodeForToken(platformId, event.data.code, event.data.state)
+              .then(tokens => {
+                // Return the tokens directly for immediate use
+                resolve(tokens);
+              })
+              .catch(reject);
+          }, 100);
         } else if (event.data.type === 'OAUTH_ERROR') {
-          console.error('OAuth error received:', event.data);
           clearInterval(checkClosed);
           window.removeEventListener('message', messageHandler);
           popup.close();
-          const errorMsg = event.data.error_description || event.data.error || 'Unknown OAuth error';
-          reject(new Error(errorMsg));
+          reject(new Error(event.data.error || 'OAuth authentication failed'));
         }
       };
 
       window.addEventListener('message', messageHandler);
     }).catch(error => {
-      console.error('OAuth flow failed:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
+      console.warn('OAuth flow failed:', error.message);
       throw error;
     });
   }
@@ -201,47 +241,156 @@ class OAuthService {
     }
 
     const config = this.clientConfigs[platformId];
+    if (!config) {
+      throw new Error(`OAuth configuration not found for platform: ${platformId}`);
+    }
     const tokenEndpoints = {
       googleDrive: 'https://oauth2.googleapis.com/token',
       oneDrive: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
       dropbox: 'https://api.dropboxapi.com/oauth2/token',
-      github: 'https://github.com/login/oauth/access_token',
-      slack: 'https://slack.com/api/oauth.v2.access',
       gmail: 'https://oauth2.googleapis.com/token',
-      figma: 'https://www.figma.com/api/oauth/token',
-      trello: 'https://trello.com/1/OAuthGetAccessToken'
+      notion: 'https://api.notion.com/v1/oauth/token',
+      github: 'https://github.com/login/oauth/access_token',
+      canva: 'https://api.canva.com/rest/v1/oauth/token'
     };
 
     const clientSecretKey = platformId === 'googleDrive' ? 'REACT_APP_GOOGLE_CLIENT_SECRET' : `REACT_APP_${platformId.toUpperCase()}_CLIENT_SECRET`;
     const clientSecret = process.env[clientSecretKey];
     
-    if (!clientSecret) {
+    // For Notion, we'll handle OAuth without client secret for now (PKCE flow)
+    // GitHub and Canva require client secret for token exchange
+    if (!clientSecret && platformId !== 'notion') {
+      console.error(`Missing client secret for ${platformId}:`, {
+        platformId,
+        clientSecretKey,
+        envValue: process.env[clientSecretKey] ? 'SET' : 'NOT_SET'
+      });
       throw new Error(`Client secret not configured for ${platformId}. Please set ${clientSecretKey} in your .env file.`);
     }
 
     const tokenData = {
       client_id: config.clientId,
-      client_secret: clientSecret,
       code: code,
       grant_type: 'authorization_code',
       redirect_uri: config.redirectUri
     };
 
-    try {
-      const response = await fetch(tokenEndpoints[platformId], {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
-        },
-        body: new URLSearchParams(tokenData)
-      });
+    // Add client secret only if available (not for Notion PKCE flow)
+    if (clientSecret) {
+      tokenData.client_secret = clientSecret;
+    }
 
-      if (!response.ok) {
-        throw new Error(`Token exchange failed: ${response.statusText}`);
+    try {
+      let response;
+      
+      if (platformId === 'github') {
+        // GitHub token exchange - use server-side proxy to avoid CORS and timing issues
+        console.log('Attempting GitHub token exchange via server proxy...');
+        console.log('Token data:', { ...tokenData, client_secret: '[HIDDEN]' });
+        
+        // Use Netlify function for GitHub OAuth to avoid CORS and timing issues
+        try {
+          response = await fetch('/.netlify/functions/github-oauth', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(tokenData)
+          });
+          
+          console.log('GitHub function response status:', response.status);
+        } catch (functionError) {
+          console.log('Netlify function failed, trying direct approach...');
+          
+          // Fallback to direct request with immediate processing
+          response = await fetch(tokenEndpoints[platformId], {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': 'FetchIt-AI-Assistant'
+            },
+            body: new URLSearchParams(tokenData)
+          });
+        }
+      } else if (platformId === 'canva') {
+        // Canva token exchange with PKCE
+        console.log('Attempting Canva token exchange with PKCE...');
+        
+        // Get stored code verifier
+        const codeVerifier = localStorage.getItem(`pkce_verifier_${platformId}`);
+        if (!codeVerifier) {
+          throw new Error('PKCE code verifier not found for Canva OAuth');
+        }
+        
+        // Add code verifier to token data (replace client_secret with code_verifier for PKCE)
+        const canvaTokenData = {
+          client_id: config.clientId,
+          code: code,
+          grant_type: 'authorization_code',
+          redirect_uri: config.redirectUri,
+          code_verifier: codeVerifier
+        };
+        
+        console.log('Canva token data:', { ...canvaTokenData, code_verifier: '[HIDDEN]' });
+        
+        response = await fetch(tokenEndpoints[platformId], {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: new URLSearchParams(canvaTokenData)
+        });
+        
+        // Clean up stored code verifier
+        localStorage.removeItem(`pkce_verifier_${platformId}`);
+      } else {
+        // Other platforms use standard approach
+        response = await fetch(tokenEndpoints[platformId], {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: new URLSearchParams(tokenData)
+        });
       }
 
-      const tokens = await response.json();
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`${platformId} token exchange failed:`, {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText.substring(0, 200)
+        });
+        throw new Error(`Token exchange failed: ${response.statusText} - ${errorText}`);
+      }
+
+      const responseText = await response.text();
+      console.log(`${platformId} response:`, responseText.substring(0, 200));
+      
+      let tokens;
+      try {
+        // Try parsing as JSON first
+        tokens = JSON.parse(responseText);
+      } catch (jsonError) {
+        // If JSON parsing fails, try parsing as URL-encoded
+        if (responseText.includes('=')) {
+          const params = new URLSearchParams(responseText);
+          tokens = {};
+          for (const [key, value] of params) {
+            tokens[key] = value;
+          }
+          
+          // Check for GitHub error responses
+          if (tokens.error) {
+            throw new Error(`GitHub OAuth error: ${tokens.error} - ${tokens.error_description || 'Unknown error'}`);
+          }
+        } else {
+          throw new Error(`Invalid response format: ${responseText.substring(0, 100)}`);
+        }
+      }
       
       // Encrypt and store tokens securely
       const encryptedTokens = encryptionService.encrypt(tokens);

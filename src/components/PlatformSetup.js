@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import oauthService from '../services/oauthService';
 
-const PlatformSetup = ({ platform, onConnect, onBack, connections }) => {
+const PlatformSetup = ({ platform, onConnect, onBack, connections, onViewChange }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   
   if (!platform) return null;
@@ -38,7 +38,7 @@ const PlatformSetup = ({ platform, onConnect, onBack, connections }) => {
       const result = await oauthService.initiateOAuth(platform.id);
       console.log('OAuth result:', result);
       
-      // Handle OAuth success
+      // Handle OAuth success - check for either code (needs exchange) or direct tokens
       if (result && result.code) {
         console.log('Exchanging code for token...');
         // Exchange code for token
@@ -56,17 +56,26 @@ const PlatformSetup = ({ platform, onConnect, onBack, connections }) => {
         setTimeout(() => {
           onBack();
         }, 1000);
+      } else if (result && result.access_token) {
+        console.log('Direct token received (already exchanged):', result);
+        
+        // Notify parent component of successful connection
+        if (onConnect) {
+          onConnect(platform.id, { tokens: result, connected: true });
+        }
+        
+        alert(`Successfully connected to ${platform.name}!`);
+        
+        // Navigate back to connections
+        setTimeout(() => {
+          onBack();
+        }, 1000);
       } else {
-        console.log('No code received from OAuth');
+        console.log('No code or token received from OAuth:', result);
       }
     } catch (error) {
       console.error('OAuth failed:', error);
-      console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-      console.error('Error type:', typeof error);
-      console.error('Error constructor:', error.constructor.name);
-      
-      const errorMessage = error?.message || error?.toString() || 'Unknown OAuth error occurred';
-      alert(`Failed to connect to ${platform.name}: ${errorMessage}`);
+      alert(`Failed to connect to ${platform.name}: ${error.message}`);
     } finally {
       setIsConnecting(false);
     }
@@ -205,7 +214,7 @@ const PlatformSetup = ({ platform, onConnect, onBack, connections }) => {
 
       <div className="help-section">
         <p className="terms-text">
-          By connecting, you agree to our <a href="#" className="link">Terms of Service</a> and <a href="#" className="link">Privacy Policy</a>
+          By connecting, you agree to our <a href="/terms" className="link" onClick={(e) => { e.preventDefault(); onViewChange('terms'); }}>Terms of Service</a> and <a href="/privacy" className="link" onClick={(e) => { e.preventDefault(); onViewChange('privacy'); }}>Privacy Policy</a>
         </p>
       </div>
     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PlatformBrowser from './PlatformBrowser';
 import PlatformSetup from './PlatformSetup';
 
-const ConnectionsManager = ({ connections, onConnect, onDisconnect, onBack }) => {
+const ConnectionsManager = ({ connections, onConnect, onDisconnect, onViewChange }) => {
   const [currentView, setCurrentView] = useState('main'); // 'main', 'browse', 'manage', 'setup'
   const [selectedPlatform, setSelectedPlatform] = useState(null);
 
@@ -33,7 +33,8 @@ const ConnectionsManager = ({ connections, onConnect, onDisconnect, onBack }) =>
       googleDrive: '📁',
       oneDrive: '☁️',
       dropbox: '📦',
-      notion: '📝'
+      notion: '📝',
+      gmail: '📧'
     };
     return icons[connectionId] || '🔗';
   };
@@ -52,9 +53,7 @@ const ConnectionsManager = ({ connections, onConnect, onDisconnect, onBack }) =>
   };
 
   const handleBackToMain = () => {
-    setCurrentView('main');
-    setSelectedPlatform(null);
-    window.location.hash = '#connections';
+    onViewChange('chat');
   };
 
   // Platform Browser View
@@ -74,6 +73,7 @@ const ConnectionsManager = ({ connections, onConnect, onDisconnect, onBack }) =>
         platform={selectedPlatform}
         onConnect={onConnect}
         onBack={handleBackToMain}
+        onViewChange={onViewChange}
         connections={connections}
       />
     );
@@ -141,54 +141,6 @@ const ConnectionsManager = ({ connections, onConnect, onDisconnect, onBack }) =>
     );
   }
 
-  // Main Connections Overview (default view)
-  return (
-    <div className="connections-manager">
-      <div className="manager-header">
-        <button className="back-btn" onClick={onBack}>
-          ← Back to Chat
-        </button>
-        <div className="header-content">
-          <h1>Connections</h1>
-          <p>Manage your platform connections and integrations</p>
-        </div>
-      </div>
-
-      <div className="connections-overview">
-        <div className="overview-stats">
-          <div className="stat-card">
-            <div className="stat-number">
-              {Object.values(connections).filter(conn => conn.connected).length}
-            </div>
-            <div className="stat-label">Connected</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-number">
-              {Object.values(connections).filter(conn => conn.enabled).length}
-            </div>
-            <div className="stat-label">Active</div>
-          </div>
-        </div>
-
-        <div className="connection-actions">
-          <button 
-            className="add-connection-btn primary"
-            onClick={() => setCurrentView('browse')}
-          >
-            + Add Connection
-          </button>
-          {Object.values(connections).some(conn => conn.connected) && (
-            <button 
-              className="manage-connections-btn"
-              onClick={() => setCurrentView('manage')}
-            >
-              Manage Connections
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export default ConnectionsManager;

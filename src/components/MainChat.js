@@ -4,6 +4,8 @@ import chromaService from '../services/chromaService';
 
 const MainChat = ({ 
   conversation, 
+  conversations,
+  activeConversationId,
   processQuery, 
   isProcessing,
   showToolsPanel, 
@@ -14,9 +16,11 @@ const MainChat = ({
   toggleConnection,
   connectPlatform,
   setCurrentView,
-  onViewChange
+  onViewChange,
+  updateConversation
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const [processingStatus, setProcessingStatus] = useState('');
   const toolsPanelRef = useRef(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -52,20 +56,84 @@ const MainChat = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Auto-scroll only when user sends a message
   useEffect(() => {
-    scrollToBottom();
+    if (conversation.messages.length > 0) {
+      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      if (lastMessage.type === 'user') {
+        scrollToBottom();
+      }
+    }
   }, [conversation.messages]);
+
+  // Handle file feedback for learning
+  const handleFileFeedback = async (messageId, fileId, feedbackType, value) => {
+    try {
+      // Update conversation state with feedback
+      const updatedConversations = conversations.map(conv => {
+        if (conv.id === activeConversationId) {
+          return {
+            ...conv,
+            messages: conv.messages.map(msg => {
+              if (msg.id === messageId) {
+                return {
+                  ...msg,
+                  feedback: {
+                    ...msg.feedback,
+                    [fileId]: {
+                      ...msg.feedback?.[fileId],
+                      [feedbackType]: value
+                    }
+                  }
+                };
+              }
+              return msg;
+            })
+          };
+        }
+        return conv;
+      });
+      
+      updateConversation(updatedConversations);
+      
+      // Get additional context for better feedback
+      const message = conversation.messages.find(msg => msg.id === messageId);
+      const query = message?.query || '';
+      const fileName = fileId.split('_').slice(1).join('_') || fileId;
+      const fileType = fileName.split('.').pop() || 'unknown';
+      
+      // Enhanced feedback data with context
+      const feedbackData = {
+        messageId,
+        fileId,
+        fileName,
+        fileType,
+        query,
+        feedbackType,
+        value,
+        timestamp: new Date().toISOString(),
+        conversationId: activeConversationId
+      };
+      
+      // Send to feedback service for LLM processing
+      const feedbackService = (await import('../services/feedbackService')).default;
+      await feedbackService.recordFeedback(feedbackData);
+      
+      console.log('📝 Enhanced feedback recorded and sent to LLM:', feedbackData);
+    } catch (error) {
+      console.error('Error handling file feedback:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    e.stopPropagation();
     if (!inputValue.trim() || isProcessing) return;
 
-    const query = inputValue.trim();
+    const userMessage = inputValue.trim();
     setInputValue('');
 
     try {
-      await processQuery(query);
+      await processQuery(userMessage, setProcessingStatus);
     } catch (error) {
       console.error('Error processing query:', error);
     }
@@ -239,15 +307,54 @@ const MainChat = ({
     return (
       <div key={message.id} className={`chat-message ${isUser ? 'user-message' : 'assistant-message'}`}>
         <div className="message-content">
-          <div className="message-text" dangerouslySetInnerHTML={{
-            __html: message.text
-              .split('\n')
-              .map(line => {
-                // Convert markdown links to HTML links
-                return line.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-              })
-              .join('<br>')
-          }} />
+          <div className="message-text">
+            {message.text.split('\n').map((line, lineIndex) => {
+              // Check if line contains file links
+              const linkMatch = line.match(/• \[([^\]]+)\]\(([^)]+)\)/);
+              if (linkMatch) {
+                const [, fileName, fileUrl] = linkMatch;
+                const fileId = `${message.id}-${lineIndex}`;
+                return (
+                  <div key={lineIndex} className="file-result-line">
+                    <span>• </span>
+                    <a href={fileUrl} target="_blank" rel="noopener noreferrer">{fileName}</a>
+                    <span className="file-type">{line.match(/\(([^)]+)\)$/)?.[1] || ''}</span>
+                    <div className="file-feedback">
+                      <button 
+                        className={`feedback-btn relevant ${message.feedback?.[fileId]?.relevant ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFileFeedback(message.id, fileId, 'relevant', !message.feedback?.[fileId]?.relevant);
+                        }}
+                        title="Mark as relevant"
+                      >
+                        ✓
+                      </button>
+                      <button 
+                        className={`feedback-btn not-relevant ${message.feedback?.[fileId]?.notRelevant ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleFileFeedback(message.id, fileId, 'notRelevant', !message.feedback?.[fileId]?.notRelevant);
+                        }}
+                        title="Mark as not relevant"
+                      >
+                        ✗
+                      </button>
+                    </div>
+                  </div>
+                );
+              } else {
+                // Regular text line
+                return (
+                  <div key={lineIndex} dangerouslySetInnerHTML={{
+                    __html: line.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+                  }} />
+                );
+              }
+            })}
+          </div>
           
           {message.sources && message.sources.length > 0 && (
             <div className="message-sources">
@@ -302,18 +409,7 @@ const MainChat = ({
 
   return (
     <div className="main-chat">
-      <div className="chat-header">
-        <h1>AI File Assistant</h1>
-        <ConnectionsPanel 
-          connections={connections}
-          toggleConnection={toggleConnection}
-          connectPlatform={connectPlatform}
-          setCurrentView={setCurrentView}
-        />
-      </div>
-
-
-      <div className="chat-messages">
+      <div className="messages-container">
         {conversation.messages.map(renderMessage)}
         
         {isProcessing && (
@@ -324,6 +420,11 @@ const MainChat = ({
                 <span></span>
                 <span></span>
               </div>
+              {processingStatus && (
+                <div className="processing-status">
+                  {processingStatus}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -335,7 +436,7 @@ const MainChat = ({
         <div className="tips-section">
           <h3>Tips</h3>
           <ul>
-            <li>Use specific keywords for better results</li>
+            <li>Use [] to enclose your keywords to generate better results</li>
             <li>Try file names, content, or document types</li>
             <li>Voice search is available for hands-free operation</li>
           </ul>

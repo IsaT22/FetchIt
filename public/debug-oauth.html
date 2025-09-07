@@ -2,99 +2,37 @@
 <html>
 <head>
     <title>OAuth Debug Test</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
-        .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-left: 4px solid #007cba; }
-        .error { border-left-color: #d32f2f; }
-    </style>
 </head>
 <body>
-    <h1>OAuth Debug Test</h1>
-    
-    <button onclick="testOAuth()">Test Google OAuth</button>
-    <button onclick="testCallback()">Test Callback Page</button>
-    <button onclick="clearLogs()">Clear Logs</button>
-    
-    <div id="logs"></div>
+    <h1>Google Drive OAuth Debug Test</h1>
+    <button onclick="testOAuth()">Test Google Drive OAuth</button>
+    <div id="result"></div>
 
     <script>
-        function log(message, isError = false) {
-            const logs = document.getElementById('logs');
-            const div = document.createElement('div');
-            div.className = isError ? 'log error' : 'log';
-            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
-            logs.appendChild(div);
-        }
-
-        function clearLogs() {
-            document.getElementById('logs').innerHTML = '';
-        }
-
-        function testCallback() {
-            log('Testing callback page...');
-            window.open('/auth/callback.html', 'test', 'width=600,height=400');
-        }
-
         function testOAuth() {
-            log('Starting OAuth test...');
+            const clientId = prompt('Enter your Google Client ID:');
+            if (!clientId) return;
             
-            // Your actual Client ID from the error message
-            const clientId = '748384977791-rb0l7b3jokgdr1iotmsb34u447n999n1.apps.googleusercontent.com';
-            const redirectUri = 'http://localhost:3000/auth/callback.html';
+            const redirectUri = 'http://localhost:3000/auth/callback';
             const scope = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.email';
-            const state = Math.random().toString(36).substring(2);
-            
-            log(`Client ID: ${clientId}`);
-            log(`Redirect URI: ${redirectUri}`);
-            log(`State: ${state}`);
             
             const params = new URLSearchParams({
                 client_id: clientId,
                 redirect_uri: redirectUri,
                 scope: scope,
                 response_type: 'code',
-                state: state,
                 access_type: 'offline',
                 prompt: 'consent'
             });
-
+            
             const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-            log(`Auth URL: ${authUrl}`);
             
-            // Test if popup opens
-            const popup = window.open(authUrl, 'oauth_test', 'width=600,height=700');
-            
-            if (!popup) {
-                log('❌ Popup was blocked!', true);
-                return;
-            }
-            
-            log('✅ Popup opened successfully');
-            
-            // Listen for messages
-            const messageHandler = (event) => {
-                log(`Message received: ${JSON.stringify(event.data)}`);
-                if (event.data.type === 'OAUTH_SUCCESS') {
-                    log('✅ OAuth SUCCESS!');
-                    popup.close();
-                } else if (event.data.type === 'OAUTH_ERROR') {
-                    log(`❌ OAuth ERROR: ${event.data.error}`, true);
-                    popup.close();
-                }
-                window.removeEventListener('message', messageHandler);
-            };
-            
-            window.addEventListener('message', messageHandler);
-            
-            // Check if popup closes
-            const checkClosed = setInterval(() => {
-                if (popup.closed) {
-                    clearInterval(checkClosed);
-                    log('Popup was closed');
-                    window.removeEventListener('message', messageHandler);
-                }
-            }, 1000);
+            document.getElementById('result').innerHTML = `
+                <p><strong>Auth URL:</strong></p>
+                <p><a href="${authUrl}" target="_blank">${authUrl}</a></p>
+                <p><strong>Redirect URI:</strong> ${redirectUri}</p>
+                <p><strong>Client ID:</strong> ${clientId}</p>
+            `;
         }
     </script>
 </body>

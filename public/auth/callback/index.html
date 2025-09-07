@@ -63,12 +63,15 @@
             window.close();
         } else if (code && state) {
             // Success - send code and state back to parent window
+            // Extract platform from state parameter (format: platformId_randomString)
+            const platform = state.split('_')[0] || 'googleDrive';
+            
             if (window.opener) {
                 window.opener.postMessage({
                     type: 'OAUTH_SUCCESS',
                     code: code,
                     state: state,
-                    platform: 'googleDrive' // Default to Google Drive
+                    platform: platform
                 }, window.location.origin);
             }
             window.close();

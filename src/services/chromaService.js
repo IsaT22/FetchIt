@@ -259,6 +259,12 @@ class ChromaService {
     return chunks;
   }
 
+  // Get all files (placeholder method for compatibility)
+  async getAllFiles() {
+    console.warn('getAllFiles called on chromaService - this method is not implemented for vector database');
+    return [];
+  }
+
   // Get collection stats
   async getStats() {
     if (!this.isAvailable()) {

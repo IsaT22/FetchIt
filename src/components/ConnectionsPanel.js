@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, setCurrentView }) => {
+const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, onViewChange }) => {
   const [showPanel, setShowPanel] = useState(false);
   const panelRef = useRef(null);
 
@@ -25,7 +25,8 @@ const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, setC
       googleDrive: '📁',
       oneDrive: '☁️',
       dropbox: '📦',
-      notion: '📝'
+      notion: '📝',
+      gmail: '📧'
     };
     return icons[connectionId] || '🔗';
   };
@@ -54,11 +55,11 @@ const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, setC
   return (
     <div className="connections-panel" ref={panelRef}>
       <button 
-        className="connections-toggle"
+        className="nav-button"
         onClick={() => setShowPanel(!showPanel)}
-        title="Manage connections"
+        title="Connections"
       >
-        <span className="connections-icon">🔗</span>
+        🔗 Connections
       </button>
 
       {showPanel && (
@@ -111,7 +112,7 @@ const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, setC
                   className="add-connection-btn"
                   onClick={() => {
                     setShowPanel(false);
-                    setCurrentView('connections');
+                    onViewChange('connections');
                     window.location.hash = '#connections?view=browse';
                   }}
                 >
@@ -121,7 +122,7 @@ const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, setC
                   className="manage-connections-btn"
                   onClick={() => {
                     setShowPanel(false);
-                    setCurrentView('connections');
+                    onViewChange('connections');
                     window.location.hash = '#connections?view=manage';
                   }}
                 >
@@ -137,7 +138,7 @@ const ConnectionsPanel = ({ connections, toggleConnection, connectPlatform, setC
                   className="add-connection-btn primary"
                   onClick={() => {
                     setShowPanel(false);
-                    setCurrentView('connections');
+                    onViewChange('connections');
                     window.location.hash = '#connections?view=browse';
                   }}
                 >

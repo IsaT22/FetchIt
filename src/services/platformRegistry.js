@@ -1,5 +1,37 @@
 // Platform Registry - Database of available platforms for connection
 export const platformRegistry = {
+  // Available Connections
+  notion: {
+    id: 'notion',
+    name: 'Notion',
+    category: 'Available Connections',
+    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/notion.svg',
+    description: 'Access your Notion workspace',
+    authType: 'api_key',
+    features: ['notes', 'databases', 'collaboration'],
+    tags: ['notion', 'notes', 'productivity', 'workspace']
+  },
+  github: {
+    id: 'github',
+    name: 'GitHub',
+    category: 'Available Connections',
+    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/github.svg',
+    description: 'Access GitHub repositories and files',
+    authType: 'oauth',
+    features: ['code_repositories', 'version_control', 'collaboration'],
+    tags: ['github', 'git', 'code', 'repositories', 'development']
+  },
+  canva: {
+    id: 'canva',
+    name: 'Canva',
+    category: 'Available Connections',
+    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/canva.svg',
+    description: 'Connect to Canva designs',
+    authType: 'oauth',
+    features: ['graphic_design', 'templates', 'media'],
+    tags: ['canva', 'design', 'graphics', 'templates']
+  },
+  
   // Cloud Storage Platforms
   googleDrive: {
     id: 'googleDrive',
@@ -52,17 +84,6 @@ export const platformRegistry = {
     tags: ['box', 'enterprise', 'cloud', 'storage']
   },
   
-  // Productivity & Note-taking
-  notion: {
-    id: 'notion',
-    name: 'Notion',
-    category: 'Productivity',
-    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/notion.svg',
-    description: 'Access your Notion workspace',
-    authType: 'api_key',
-    features: ['notes', 'databases', 'collaboration'],
-    tags: ['notion', 'notes', 'productivity', 'workspace']
-  },
   obsidian: {
     id: 'obsidian',
     name: 'Obsidian',
@@ -94,17 +115,6 @@ export const platformRegistry = {
     tags: ['microsoft', 'onenote', 'notes', 'notebooks']
   },
   
-  // Development & Code
-  github: {
-    id: 'github',
-    name: 'GitHub',
-    category: 'Development',
-    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/github.svg',
-    description: 'Access GitHub repositories and files',
-    authType: 'oauth',
-    features: ['code_repositories', 'version_control', 'collaboration'],
-    tags: ['github', 'git', 'code', 'repositories', 'development']
-  },
   gitlab: {
     id: 'gitlab',
     name: 'GitLab',
@@ -126,16 +136,6 @@ export const platformRegistry = {
     authType: 'oauth',
     features: ['messaging', 'file_sharing', 'team_collaboration'],
     tags: ['slack', 'chat', 'communication', 'team']
-  },
-  discord: {
-    id: 'discord',
-    name: 'Discord',
-    category: 'Communication',
-    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/discord.svg',
-    description: 'Connect to Discord servers and messages',
-    authType: 'oauth',
-    features: ['messaging', 'voice_chat', 'community'],
-    tags: ['discord', 'chat', 'gaming', 'community']
   },
   
   // Email
@@ -170,16 +170,6 @@ export const platformRegistry = {
     authType: 'oauth',
     features: ['design_files', 'collaboration', 'prototyping'],
     tags: ['figma', 'design', 'ui', 'prototyping']
-  },
-  canva: {
-    id: 'canva',
-    name: 'Canva',
-    category: 'Design',
-    icon: 'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/canva.svg',
-    description: 'Connect to Canva designs',
-    authType: 'oauth',
-    features: ['graphic_design', 'templates', 'media'],
-    tags: ['canva', 'design', 'graphics', 'templates']
   },
   
   // Project Management
@@ -226,7 +216,9 @@ export const getPlatformsByCategory = (category) => {
 
 export const getAllCategories = () => {
   const categories = [...new Set(Object.values(platformRegistry).map(p => p.category))];
-  return categories.sort();
+  // Put "Available Connections" first, then sort the rest
+  const sorted = categories.filter(cat => cat !== 'Available Connections').sort();
+  return categories.includes('Available Connections') ? ['Available Connections', ...sorted] : sorted;
 };
 
 export const searchPlatforms = (query) => {

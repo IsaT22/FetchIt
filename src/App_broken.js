@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
 import Sidebar from './components/Sidebar';
 import MainChat from './components/MainChat';
@@ -10,9 +9,6 @@ import Settings from './components/Settings';
 import UserSettings from './components/UserSettings';
 import ConnectionStatus from './components/ConnectionStatus';
 import ConnectionsManager from './components/ConnectionsManager';
-import ConnectionsPanel from './components/ConnectionsPanel';
-import TermsOfUse from './components/TermsOfUse';
-import PrivacyPolicy from './components/PrivacyPolicy';
 import driveService from './services/driveService';
 import chromaService from './services/chromaService';
 import aiAgentService from './services/aiAgentService';
@@ -22,12 +18,15 @@ import encryptionService from './services/encryptionService';
 import llmService from './services/llmService';
 import supabaseService from './services/supabaseService';
 import userStorageService from './services/userStorageService';
-import canvaService from './services/canvaService';
 
 function App() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  // Simplified state - no authentication needed
+  // User authentication and guest mode
+  const [user, setUser] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(true);
+  const [isGuestMode, setIsGuestMode] = useState(false);
   
   // Conversation management
   const [conversations, setConversations] = useState([
@@ -40,43 +39,13 @@ function App() {
     googleDrive: { enabled: false, connected: false, name: 'Google Drive', icon: '📁', description: 'Access your Google Drive files and folders' },
     oneDrive: { enabled: false, connected: false, name: 'OneDrive', icon: '☁️', description: 'Connect to Microsoft OneDrive' },
     dropbox: { enabled: false, connected: false, name: 'Dropbox', icon: '📦', description: 'Sync with your Dropbox account' },
-    notion: { enabled: false, connected: false, name: 'Notion', icon: '📝', description: 'Access your Notion workspace' },
-    gmail: { enabled: false, connected: false, name: 'Gmail', icon: '📧', description: 'Access Gmail messages and attachments' },
-    slack: { enabled: false, connected: false, name: 'Slack', icon: '💬', description: 'Connect to Slack channels and messages' }
+    notion: { enabled: false, connected: false, name: 'Notion', icon: '📝', description: 'Access your Notion workspace' }
   });
   
   // UI state
   const [showToolsPanel, setShowToolsPanel] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'files', 'connections', 'auth', 'settings', 'terms', or 'privacy'
-  
-  // Handle navigation with URL routing
-  const handleViewChange = (view) => {
-    setCurrentView(view);
-    if (view === 'terms') {
-      navigate('/terms');
-    } else if (view === 'privacy') {
-      navigate('/privacy');
-    } else if (view === 'chat') {
-      navigate('/');
-    } else if (view === 'connections') {
-      navigate('/connections');
-    }
-  };
-  
-  // Update currentView based on URL
-  useEffect(() => {
-    const path = location.pathname;
-    if (path === '/terms') {
-      setCurrentView('terms');
-    } else if (path === '/privacy') {
-      setCurrentView('privacy');
-    } else if (path === '/connections') {
-      setCurrentView('connections');
-    } else {
-      setCurrentView('chat');
-    }
-  }, [location.pathname]);
+  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'files', 'connections', 'auth', or 'settings'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -220,7 +189,41 @@ function App() {
     const loadUserData = async () => {
       const encryptionService = (await import('./services/encryptionService')).default;
       
-      // No user authentication needed - direct access to chat
+      // Load user data
+      const savedUser = localStorage.getItem('fetchit_user');
+      if (savedUser) {
+        try {
+          // Try to decrypt user data
+          const userData = encryptionService.decrypt(savedUser);
+          setUser(userData);
+        } catch (error) {
+          // Fallback to plain JSON for backward compatibility
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (parseError) {
+            console.error('Failed to parse saved user:', parseError);
+            localStorage.removeItem('fetchit_user');
+          }
+        }
+      } else {
+        // Check if there's a user in IndexedDB
+        try {
+          const userStorageService = (await import('./services/userStorageService')).default;
+          await userStorageService.initialize();
+          
+          // Try to get last logged in user
+          const lastUser = localStorage.getItem('fetchit_last_user_email');
+          if (lastUser) {
+            console.log('Found previous user email, checking session...');
+            // For now, just show auth - we'll add session restoration later
+          }
+        } catch (error) {
+          console.warn('Could not check for existing users:', error);
+        }
+        
+        // Show authentication screen
+        setCurrentView('auth');
+      }
       
       // Load saved connections
       const connectionKeys = Object.keys(localStorage).filter(key => key.startsWith('connection_'));
@@ -252,7 +255,31 @@ function App() {
     loadUserData();
   }, []);
 
-  // Removed guest mode handlers - direct access to chat
+  // Guest mode handlers
+  const handleContinueAsGuest = () => {
+    setIsGuestMode(true);
+    setShowGuestModal(false);
+    storageService.setGuestMode(true);
+    storageService.setItem('mode_chosen', 'true');
+    storageService.setItem('guest_mode', 'true');
+    
+    // Load default data for guest mode
+    loadUserData();
+    loadConnections();
+    
+    console.log('Continuing in guest mode - no data will be persisted');
+  };
+
+  const handleSignUp = () => {
+    setIsGuestMode(false);
+    setShowGuestModal(false);
+    setShowAuth(true);
+    storageService.setGuestMode(false);
+    storageService.setItem('mode_chosen', 'true');
+    storageService.setItem('guest_mode', 'false');
+    
+    console.log('Redirecting to account creation');
+  };
 
   // Load user data from storage
   const loadUserData = () => {
@@ -313,21 +340,27 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Load user data and connections first (fast)
-        loadUserData();
-        loadConnections();
+        // Check if user has made a choice about guest mode
+        const hasChosenMode = storageService.getItem('mode_chosen');
+        if (hasChosenMode) {
+          const guestMode = storageService.getItem('guest_mode') === 'true';
+          setIsGuestMode(guestMode);
+          setShowGuestModal(false);
+          storageService.setGuestMode(guestMode);
+        }
         
-        // Initialize services in background (slower)
-        setTimeout(async () => {
-          try {
-            await chromaService.initialize();
-            await aiAgentService.initialize();
-            await embeddingService.initialize();
-            console.log('All services initialized successfully');
-          } catch (error) {
-            console.error('Error initializing services:', error);
-          }
-        }, 100);
+        // Initialize all services
+        await chromaService.initialize();
+        await aiAgentService.initialize();
+        await embeddingService.initialize();
+        
+        console.log('All services initialized successfully');
+        
+        // Load user data and connections (only if not in guest mode or if guest mode is active)
+        if (!showGuestModal) {
+          loadUserData();
+          loadConnections();
+        }
         
       } catch (error) {
         console.error('Error initializing app:', error);
@@ -335,22 +368,99 @@ function App() {
     };
 
     initializeApp();
-  }, []);
+  }, [showGuestModal]);
 
-  // Removed sign out functionality - no authentication needed
-
-
-  // Initialize user storage only (lightweight)
-  useEffect(() => {
-    const initializeStorage = async () => {
+  const handleSignOut = async () => {
+    if (isGuestMode) {
+      // Clear all session data for guest mode
+      storageService.clearSessionData();
+      setUser(null);
+      setConversations([{ id: 1, title: 'New Chat', messages: [], createdAt: new Date().toISOString() }]);
+      setActiveConversationId(1);
+      setConnections({
+        googleDrive: { enabled: false, connected: false, name: 'Google Drive', icon: '📁', description: 'Access your Google Drive files and folders' },
+      });
+      setShowGuestModal(true);
+      console.log('Guest session cleared');
+    } else if (user?.id) {
       try {
-        await userStorageService.initialize();
+        // Clear session for regular users
+        await userStorageService.deleteSession(user.id);
       } catch (error) {
-        console.error('Error initializing storage:', error);
+        console.warn('Failed to clear session:', error);
+      }
+    }
+    setUser(null);
+    setShowSettings(false);
+    setCurrentView('auth');
+    localStorage.removeItem('fetchit_current_user');
+    localStorage.removeItem('fetchit_user');
+  };
+
+  // User management functions
+  const handleUserUpdate = async (updatedUser) => {
+    setUser(updatedUser);
+    // Encrypt and save user data
+    try {
+      const encryptionService = (await import('./services/encryptionService')).default;
+      const encryptedUserData = encryptionService.encrypt(updatedUser);
+      localStorage.setItem('fetchit_user', encryptedUserData);
+    } catch (error) {
+      console.error('Failed to encrypt user data:', error);
+      // Fallback to plain storage
+      localStorage.setItem('fetchit_user', JSON.stringify(updatedUser));
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    setUser(null);
+    setShowAccountSettings(false);
+    setCurrentView('chat');
+    window.location.hash = '';
+  };
+
+  const handleShowSettings = () => {
+    setCurrentView('settings');
+    setShowAccountSettings(false);
+    setShowSettings(false);
+    window.location.hash = '#settings';
+  };
+
+  const handleSettingsNavigation = (view) => {
+    setShowSettings(false);
+    if (view === 'connections') {
+      setCurrentView('connections');
+      window.location.hash = '#connections';
+    } else if (view === 'files') {
+      setCurrentView('files');
+      window.location.hash = '#files';
+    }
+  };
+
+  // Initialize services on app start (legacy - keeping for compatibility)
+  useEffect(() => {
+    const initializeServices = async () => {
+      try {
+        // Initialize user storage first
+        await userStorageService.initialize();
+        
+        // Check for existing session
+        const savedUser = storageService.getItem('fetchit_current_user');
+        if (savedUser && !user) {
+          try {
+            const userData = JSON.parse(savedUser);
+            setUser(userData);
+          } catch (error) {
+            console.error('Error loading saved user:', error);
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error initializing services:', error);
       }
     };
 
-    initializeStorage();
+    initializeServices();
   }, []);
 
   // Handle hash navigation
@@ -411,31 +521,31 @@ function App() {
   const processQuery = async (query, setProcessingStatus) => {
     if (!query.trim()) return;
 
-    setIsProcessing(true);
-    if (setProcessingStatus) setProcessingStatus('Analyzing your request...');
-    
-    const userMessage = {
-      id: Date.now(),
-      text: query,
-      type: 'user',
-      timestamp: new Date().toISOString()
-    };
-
-    // Add user message immediately
-    setConversations(prev => prev.map(conv => 
-      conv.id === activeConversationId 
-        ? { ...conv, messages: [...conv.messages, userMessage] }
-        : conv
-    ));
-
-    let response = '';
-    let searchResults = [];
-    
-    // Enhanced query understanding
-    const queryAnalysis = analyzeQuery(query);
-    console.log('🧠 Query analysis:', queryAnalysis);
-
     try {
+      setIsProcessing(true);
+      if (setProcessingStatus) setProcessingStatus('Analyzing your request...');
+    
+      const userMessage = {
+        id: Date.now(),
+        text: query,
+        type: 'user',
+        timestamp: new Date().toISOString()
+      };
+
+      // Add user message immediately
+      setConversations(prev => prev.map(conv => 
+        conv.id === activeConversationId 
+          ? { ...conv, messages: [...conv.messages, userMessage] }
+          : conv
+      ));
+
+      let response = '';
+      let searchResults = [];
+      
+      // Enhanced query understanding
+      const queryAnalysis = analyzeQuery(query);
+      console.log('🧠 Query analysis:', queryAnalysis);
+
       // Get previous feedback for learning
       const previousFeedback = JSON.parse(localStorage.getItem('fetchit_file_feedback') || '[]');
       console.log('📚 Learning from', previousFeedback.length, 'previous feedback entries');
@@ -450,47 +560,47 @@ function App() {
       console.log('🧠 Using conversation context:', conversationContext);
 
       if (setProcessingStatus) setProcessingStatus('Searching files...');
-    let sources = [];
+      let sources = [];
     
-    // Add timeout handling for file processing
-    const SEARCH_TIMEOUT = 30000; // 30 seconds
-    const searchPromise = new Promise(async (resolve, reject) => {
-      try {
-        // Search using vector database first (semantic search)
-        if (setProcessingStatus) setProcessingStatus('Performing semantic search...');
-        const vectorResults = await chromaService.searchSimilar(query, 10);
-        console.log('🔍 Vector search results:', vectorResults);
+      // Add timeout handling for file processing
+      const SEARCH_TIMEOUT = 30000; // 30 seconds
+      const searchPromise = new Promise(async (resolve, reject) => {
+        try {
+          // Search using vector database first (semantic search)
+          if (setProcessingStatus) setProcessingStatus('Performing semantic search...');
+          const vectorResults = await chromaService.searchSimilar(query, 10);
+          console.log('🔍 Vector search results:', vectorResults);
         
-        if (vectorResults && vectorResults.length > 0) {
-          searchResults = vectorResults;
-          console.log(`✅ Found ${searchResults.length} files via vector search`);
-          resolve(searchResults);
-        } else {
+          if (vectorResults && vectorResults.length > 0) {
+            searchResults = vectorResults;
+            console.log(`✅ Found ${searchResults.length} files via vector search`);
+            resolve(searchResults);
+          } else {
+            resolve([]);
+          }
+        } catch (vectorError) {
+          console.warn('Vector search failed, falling back to platform search:', vectorError);
           resolve([]);
         }
-      } catch (vectorError) {
-        console.warn('Vector search failed, falling back to platform search:', vectorError);
-        resolve([]);
-      }
-    });
-    
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Search timeout')), SEARCH_TIMEOUT);
-    });
-    
-    try {
-      searchResults = await Promise.race([searchPromise, timeoutPromise]);
-    } catch (timeoutError) {
-      console.warn('Search timed out, using fallback:', timeoutError);
-      searchResults = [];
-    }
+      });
       
-    // Fallback to traditional search if vector search fails or returns no results
-    if (searchResults.length === 0) {
-      console.log('🔍 Performing fallback search in uploaded files...');
-      const uploadedFiles = await chromaService.getAllFiles();
-      console.log(`📁 Found ${uploadedFiles.length} uploaded files to search`);
-            // Also search Google Drive files if connected
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Search timeout')), SEARCH_TIMEOUT);
+      });
+      
+        searchResults = await Promise.race([searchPromise, timeoutPromise]);
+      } catch (timeoutError) {
+        console.warn('Search timed out, using fallback:', timeoutError);
+        searchResults = [];
+      }
+        
+      // Fallback to traditional search if vector search fails or returns no results
+      if (searchResults.length === 0) {
+        console.log('🔍 Performing fallback search in uploaded files...');
+        const uploadedFiles = await chromaService.getAllFiles();
+        console.log(`📁 Found ${uploadedFiles.length} uploaded files to search`);
+        
+        // Also search Google Drive files if connected
         let driveFiles = [];
         if (connections.googleDrive?.connected) {
           try {
@@ -580,37 +690,34 @@ function App() {
         const keywords = extractKeywords(query);
         console.log(`🔍 Extracted keywords: ${keywords && keywords.length > 0 ? keywords.join(', ') : 'none'}`);
         
-        // Enhanced keyword matching with relevance scoring
+        // Enhanced keyword matching with stricter relevance filtering
         const matchingFiles = allFiles.filter(file => {
           const fileName = file.name ? file.name.toLowerCase() : '';
           const fileContent = (file.content || '').toLowerCase();
           
           if (!keywords || keywords.length === 0) return false;
           
-          // Calculate relevance score
-          let relevanceScore = 0;
-          let keywordMatches = 0;
+          // For testimonial/opinion queries, require both topic AND testimonial keywords
+          const queryLower = query.toLowerCase();
+          if (queryLower.includes('testimonial') || queryLower.includes('opinion') || queryLower.includes('review')) {
+            const hasTopicKeyword = keywords.some(keyword => 
+              keyword && (fileName.includes(keyword) || fileContent.includes(keyword))
+            );
+            const hasTestimonialKeyword = fileName.includes('testimonial') || 
+                                        fileName.includes('opinion') || 
+                                        fileName.includes('review') ||
+                                        fileContent.includes('testimonial') ||
+                                        fileContent.includes('opinion') ||
+                                        fileContent.includes('review');
+            
+            return hasTopicKeyword && hasTestimonialKeyword;
+          }
           
-          keywords.forEach(keyword => {
-            if (keyword) {
-              if (fileName.includes(keyword)) {
-                relevanceScore += 3; // Higher weight for filename matches
-                keywordMatches++;
-              }
-              if (fileContent.includes(keyword)) {
-                relevanceScore += 1; // Lower weight for content matches
-                keywordMatches++;
-              }
-            }
-          });
-          
-          // Require at least 50% of keywords to match for relevance
-          const relevanceThreshold = Math.max(1, Math.ceil(keywords.length * 0.5));
-          file.relevanceScore = relevanceScore;
-          file.keywordMatches = keywordMatches;
-          
-          return keywordMatches >= relevanceThreshold;
-        }).sort((a, b) => b.relevanceScore - a.relevanceScore); // Sort by relevance
+          // For other queries, use regular keyword matching
+          return keywords.some(keyword => 
+            keyword && (fileName.includes(keyword) || fileContent.includes(keyword))
+          );
+        });
         
         console.log(`🎯 Found ${matchingFiles.length} matching files for query: "${query}"`);
         
@@ -619,43 +726,6 @@ function App() {
           let finalFiles = matchingFiles;
           if (queryAnalysis.requestedCount) {
             finalFiles = matchingFiles.slice(0, parseInt(queryAnalysis.requestedCount));
-          }
-          
-          // Check if files are actually relevant to the query
-          const queryLower = query.toLowerCase();
-          const isClotGuardQuery = queryLower.includes('clotguard') || queryLower.includes('clot guard');
-          const isTestimonialQuery = queryLower.includes('testimonial') || queryLower.includes('testimony') || queryLower.includes('opinion');
-          
-          if (isClotGuardQuery && isTestimonialQuery) {
-            // Filter out clearly irrelevant files for ClotGuard testimonial queries
-            finalFiles = finalFiles.filter(f => {
-              const fileName = f.name ? f.name.toLowerCase() : '';
-              const fileContent = (f.content || '').toLowerCase();
-              
-              // Exclude files that are clearly not testimonials
-              const isRelevant = (
-                (fileName.includes('clotguard') && (fileName.includes('testimonial') || fileName.includes('testimony'))) ||
-                (fileContent.includes('clotguard') && (fileContent.includes('testimonial') || fileContent.includes('testimony') || fileContent.includes('opinion'))) ||
-                (fileName.includes('testimonial') && fileContent.includes('clotguard'))
-              );
-              
-              // Exclude obviously irrelevant files
-              const isIrrelevant = (
-                fileName.includes('resume') || 
-                fileName.includes('fetchit') || 
-                fileName.includes('deck') ||
-                fileName.includes('survey') ||
-                (fileName.includes('copy') && fileName.includes('summary') && !fileContent.includes('clotguard'))
-              );
-              
-              return isRelevant && !isIrrelevant;
-            });
-          }
-          
-          // If no relevant files found after filtering, provide helpful message
-          if (finalFiles.length === 0) {
-            response = `**Question:** ${query}\n\n**Answer:** I couldn't find any files specifically about ClotGuard testimonials or outside opinions in your Google Drive. The search returned some files, but they appear to be unrelated (resumes, presentations about other topics, etc.).\n\n**Relevant Files:** None found\n\nTo help me find the right information, please:\n1. Check if you have a "ClotGuard" folder in your Google Drive\n2. Ensure testimonial files contain "ClotGuard" and "testimonial" in the filename or content\n3. Try uploading the specific testimonial files if they're not in Google Drive`;
-            return;
           }
           
           // Enhanced file metadata with detailed information
@@ -988,31 +1058,20 @@ function App() {
             }
           }
         } else {
-          // Check if user is referencing previous conversation
-          const previousMentions = conversationContext.filter(msg => 
-            msg.type === 'assistant' && msg.text.includes('found')
-          );
-          
-          const contextualSuggestion = previousMentions.length > 0 ? 
-            `\n\nBased on our previous conversation, you might want to try searching for terms from the files I found earlier.` : '';
-          
-          response = `I searched through ${allFiles.length} files but couldn't find anything directly related to "${query}". Try rephrasing your question or check if the files contain the information you're looking for.${contextualSuggestion}`;
+          // Structured response for no relevant files found
+          response = `**Question:** ${query}
+
+**Relevant Files:** None found
+
+I searched through ${allFiles.length} file(s) but couldn't find any documents that contain relevant information about your query. This could mean:
+
+• The specific files you're looking for aren't in your connected Google Drive
+• The content might be in files with different naming or keywords
+• You may need to upload or connect additional document sources
+
+Try using more specific keywords or check if the files are located in a different folder.`;
         }
       }
-      
-      const assistantMessage = {
-        id: Date.now() + 1,
-        text: response,
-        type: 'assistant',
-        timestamp: new Date().toISOString(),
-        showFileUpload: true
-      };
-      setTimeout(() => {
-        addMessageToConversation(assistantMessage);
-        setIsProcessing(false);
-      }, 500);
-      return;
-    }
       
     // Files found - check for specific data requests
     const lowerQuery = query.toLowerCase();
@@ -1083,20 +1142,20 @@ function App() {
       }
     }
       
-    const assistantMessage = {
-      id: Date.now() + 1,
-      text: response,
-      type: 'assistant',
-      timestamp: new Date().toISOString(),
-      sources: sources,
-      query: query // Store original query for feedback context
-    };
-    
-    setTimeout(() => {
-      addMessageToConversation(assistantMessage);
-      setIsProcessing(false);
-      if (setProcessingStatus) setProcessingStatus('');
-    }, 500);
+      const assistantMessage = {
+        id: Date.now() + 1,
+        text: response,
+        type: 'assistant',
+        timestamp: new Date().toISOString(),
+        sources: sources,
+        query: query // Store original query for feedback context
+      };
+      
+      setTimeout(() => {
+        addMessageToConversation(assistantMessage);
+        setIsProcessing(false);
+        if (setProcessingStatus) setProcessingStatus('');
+      }, 500);
       
     } catch (error) {
       console.error('Error in processQuery:', error);
@@ -1118,73 +1177,113 @@ function App() {
 
   return (
     <div className="app-container">
-
-      {/* Main Content - Full Width */}
-      <div className="main-content-fullwidth">
-        {/* Header Bar */}
-        <div className="header-bar">
-          <div className="logo-section">
-            <h1 className="app-title">FetchIt</h1>
-            <p className="app-subtitle">AI Assistant</p>
-          </div>
-          <div className="header-actions">
-            <button 
-              className={`nav-button ${currentView === 'chat' ? 'active' : ''}`}
-              onClick={() => handleViewChange('chat')}
-              title="Chat"
-            >
-              💬 Chat
-            </button>
-            <ConnectionsPanel 
+      <Sidebar 
+        conversations={conversations}
+        activeConversationId={activeConversationId}
+        setActiveConversationId={setActiveConversationId}
+        createNewConversation={createNewConversation}
+        deleteConversation={deleteConversation}
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+        onViewChange={setCurrentView}
+        user={user}
+        onShowAuth={() => {
+          setCurrentView('auth');
+          window.location.hash = '#auth';
+        }}
+        onShowSettings={handleShowSettings}
+        onShowAccountSettings={handleShowSettings}
+      />
+      
+      <div className={`main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        
+        {currentView === 'chat' ? (
+          <MainChat 
+            conversation={conversations.find(conv => conv.id === activeConversationId)}
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            processQuery={processQuery}
+            isProcessing={isProcessing}
+            showToolsPanel={showToolsPanel}
+            setShowToolsPanel={setShowToolsPanel}
+            voiceMode={voiceMode}
+            setVoiceMode={setVoiceMode}
+            connections={connections}
+            toggleConnection={toggleConnection}
+            connectPlatform={connectPlatform}
+            setCurrentView={setCurrentView}
+            onViewChange={setCurrentView}
+            updateConversation={setConversations}
+          />
+        ) : currentView === 'auth' ? (
+          <UserAuth 
+            onClose={() => {
+              setCurrentView('chat');
+              window.location.hash = '';
+            }}
+            onAuthSuccess={(userData) => {
+              setUser(userData);
+              setCurrentView('chat');
+            }}
+          />
+        ) : currentView === 'settings' ? (
+          <Settings 
+            user={user}
+            onClose={() => {
+              setCurrentView('chat');
+              window.location.hash = '';
+            }}
+            onUpdateUser={handleUserUpdate}
+            onDeleteAccount={handleDeleteAccount}
+            onSignOut={handleSignOut}
+            onNavigate={handleSettingsNavigation}
+          />
+        ) : (
+          <div>
+            <ConnectionStatus 
               connections={connections}
+              onRefresh={() => {
+                // Refresh connections state - reload from localStorage
+                const savedConnections = localStorage.getItem('connections');
+                if (savedConnections) {
+                  setConnections(JSON.parse(savedConnections));
+                }
+              }}
+            />
+            <ConnectionsManager 
+              connections={connections}
+              onBack={() => setCurrentView('chat')}
               onConnect={connectPlatform}
-              onDisconnect={toggleConnection}
-              onViewChange={handleViewChange}
+              onDisconnect={disconnectPlatform}
             />
           </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="content-area">
-          <Routes>
-            <Route path="/" element={
-              <MainChat 
-                conversation={conversations.find(conv => conv.id === activeConversationId)}
-                conversations={conversations}
-                activeConversationId={activeConversationId}
-                processQuery={processQuery}
-                isProcessing={isProcessing}
-                showToolsPanel={showToolsPanel}
-                setShowToolsPanel={setShowToolsPanel}
-                voiceMode={voiceMode}
-                setVoiceMode={setVoiceMode}
-                connections={connections}
-                toggleConnection={toggleConnection}
-                connectPlatform={connectPlatform}
-                setCurrentView={handleViewChange}
-                onViewChange={handleViewChange}
-                updateConversation={(updatedConversations) => {
-                  setConversations(updatedConversations);
-                }}
-              />
-            } />
-            <Route path="/connections" element={
-              <ConnectionsManager 
-                connections={connections}
-                onConnect={connectPlatform}
-                onDisconnect={toggleConnection}
-                onViewChange={handleViewChange}
-              />
-            } />
-            <Route path="/terms" element={
-              <TermsOfUse onBack={() => handleViewChange('chat')} />
-            } />
-            <Route path="/privacy" element={
-              <PrivacyPolicy onBack={() => handleViewChange('chat')} />
-            } />
-          </Routes>
-        </div>
+        )}
       </div>
+
+
+      {showSettings && user && (
+        <UserSettings 
+          user={user}
+          onClose={() => setShowSettings(false)}
+          onUserUpdate={handleUserUpdate}
+          onSignOut={handleSignOut}
+          onNavigate={handleSettingsNavigation}
+        />
+      )}
+
+      {showGuestModal && (
+        <GuestModeModal
+          onContinueAsGuest={handleContinueAsGuest}
+          onSignUp={handleSignUp}
+        />
+      )}
+
+      {isGuestMode && (
+        <div className="guest-mode-indicator">
+          🔓 Guest Mode - Data not saved
+        </div>
+      )}
+
     </div>
   );
 }
