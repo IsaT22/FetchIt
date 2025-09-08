@@ -23,8 +23,20 @@ class MultiPlatformSearchService {
     console.log('🔍 All connections status:', Object.keys(connections).map(id => ({
       platform: id,
       connected: connections[id]?.connected,
-      enabled: connections[id]?.enabled
+      enabled: connections[id]?.enabled,
+      hasTokens: connections[id]?.tokens ? 'YES' : 'NO'
     })));
+    
+    // Additional debugging for GitHub specifically
+    if (connections.github) {
+      console.log('🔍 GitHub connection details:', {
+        connected: connections.github.connected,
+        enabled: connections.github.enabled,
+        hasTokens: connections.github.tokens ? 'YES' : 'NO',
+        tokenKeys: connections.github.tokens ? Object.keys(connections.github.tokens) : 'NONE'
+      });
+    }
+    
     return connectedPlatforms;
   }
 

@@ -9,20 +9,46 @@ class GitHubService {
   // Get access token from encrypted storage
   async getAccessToken() {
     try {
+      console.log('🔍 GitHubService: Attempting to retrieve access token...');
+      
       // First try the standard storage location
       let encryptedToken = localStorage.getItem('github_access_token');
+      console.log('🔍 GitHubService: github_access_token in localStorage:', encryptedToken ? 'FOUND' : 'NOT_FOUND');
       
       // If not found, try the connection-based storage
       if (!encryptedToken) {
+        console.log('🔍 GitHubService: Checking connection-based storage...');
         const connectionData = encryptionService.getStoredCredentials('github');
+        console.log('🔍 GitHubService: Connection data:', connectionData ? 'FOUND' : 'NOT_FOUND');
+        
         if (connectionData && connectionData.tokens && connectionData.tokens.access_token) {
           console.log('🔑 Found GitHub token in connection storage');
           return connectionData.tokens.access_token;
         }
       }
       
+      // Try the tokens_github location used by oauthService
+      if (!encryptedToken) {
+        console.log('🔍 GitHubService: Checking tokens_github storage...');
+        const tokensGithub = localStorage.getItem('tokens_github');
+        console.log('🔍 GitHubService: tokens_github in localStorage:', tokensGithub ? 'FOUND' : 'NOT_FOUND');
+        
+        if (tokensGithub) {
+          try {
+            const tokens = encryptionService.decrypt(tokensGithub);
+            if (tokens && tokens.access_token) {
+              console.log('🔑 Found GitHub token in tokens_github storage');
+              return tokens.access_token;
+            }
+          } catch (decryptError) {
+            console.warn('Failed to decrypt tokens_github:', decryptError);
+          }
+        }
+      }
+      
       if (!encryptedToken) {
         console.error('❌ No GitHub access token found in any storage location');
+        console.log('🔍 Available localStorage keys:', Object.keys(localStorage).filter(k => k.includes('github') || k.includes('token')));
         throw new Error('No GitHub access token found');
       }
       
