@@ -154,11 +154,36 @@ class MultiPlatformSearchService {
 
       // Handle different service method signatures
       if (platformId === 'github') {
-        // GitHub service might have different methods
+        // GitHub service has searchRepositories and searchCode methods
+        console.log('🔍 Searching GitHub repositories and code...');
         if (typeof service.searchRepositories === 'function') {
-          return await service.searchRepositories(query);
-        } else if (typeof service.searchFiles === 'function') {
-          return await service.searchFiles(query);
+          const repoResults = await service.searchRepositories(query);
+          const codeResults = typeof service.searchCode === 'function' ? await service.searchCode(query) : { items: [] };
+          
+          // Combine repository and code search results
+          const combinedResults = [
+            ...(repoResults.items || []).map(repo => ({
+              id: repo.id,
+              name: repo.name,
+              content: repo.description || '',
+              webViewLink: repo.html_url,
+              type: 'repository',
+              owner: repo.owner?.login,
+              stars: repo.stargazers_count,
+              language: repo.language
+            })),
+            ...(codeResults.items || []).map(code => ({
+              id: code.sha,
+              name: code.name,
+              content: code.text_matches?.[0]?.fragment || '',
+              webViewLink: code.html_url,
+              type: 'code',
+              repository: code.repository?.name,
+              path: code.path
+            }))
+          ];
+          
+          return combinedResults;
         }
       } else if (platformId === 'notion') {
         // Notion service
