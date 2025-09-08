@@ -361,30 +361,16 @@ class OAuthService {
           },
           body: new URLSearchParams(canvaTokenData)
         });
-      } else if (platformId === 'notion') {
-        // Notion token exchange with special handling
-        console.log('Attempting Notion token exchange...');
         
-        response = await fetch(tokenEndpoints[platformId], {
-          method: 'POST',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${btoa(`${config.clientId}:${clientSecret}`)}`
-          },
-          body: JSON.stringify({
-            grant_type: 'authorization_code',
-            code: code,
-            redirect_uri: config.redirectUri
-          })
-        });
+        // Clean up stored code verifier
+        localStorage.removeItem(`pkce_verifier_${platformId}`);
       } else {
-        // Standard OAuth flow for other platforms
+        // Other platforms use standard approach
         response = await fetch(tokenEndpoints[platformId], {
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
           },
           body: new URLSearchParams(tokenData)
         });
