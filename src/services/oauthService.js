@@ -47,10 +47,11 @@ class OAuthService {
       canva: {
         clientId: process.env.REACT_APP_CANVA_CLIENT_ID,
         clientSecret: process.env.REACT_APP_CANVA_CLIENT_SECRET,
+        appId: process.env.REACT_APP_CANVA_APP_ID,
+        appOrigin: process.env.REACT_APP_CANVA_APP_ORIGIN,
         redirectUri: `${window.location.origin}/auth/callback/index.html`,
         scope: 'design:read design:content:read',
-        authUrl: 'https://www.canva.com/api/oauth/authorize',
-        usePKCE: true
+        authUrl: 'https://www.canva.com/api/oauth/authorize'
       }
     };
   }
@@ -268,9 +269,9 @@ class OAuthService {
       googleClientSecret: process.env.REACT_APP_GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT_SET'
     });
 
-    // For Notion and Google Drive, we'll handle OAuth without client secret (PKCE flow)
-    // GitHub and Canva require client secret for token exchange
-    if (!clientSecret && platformId !== 'notion' && platformId !== 'googleDrive') {
+    // For Notion, we'll handle OAuth without client secret (PKCE flow)
+    // Google Drive, GitHub and Canva require client secret for token exchange
+    if (!clientSecret && platformId !== 'notion') {
       console.error(`Missing client secret for ${platformId}:`, {
         platformId,
         clientSecretKey,
@@ -287,13 +288,8 @@ class OAuthService {
     };
 
     // Add client secret for platforms that require it
-    if (clientSecret && !['googleDrive'].includes(platformId)) {
+    if (clientSecret) {
       tokenData.client_secret = clientSecret;
-    }
-
-    // For Google Drive, we'll use PKCE-style flow without client secret
-    if (platformId === 'googleDrive') {
-      console.log('🔑 Using PKCE flow for Google Drive (no client secret required)');
     }
 
     try {
