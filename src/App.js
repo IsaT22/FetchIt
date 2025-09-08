@@ -489,31 +489,33 @@ function App() {
       searchResults = [];
     }
       
+    // Always search connected platforms first, then fallback to uploaded files
+    console.log('🔍 Starting multi-platform search...');
+    let platformFiles = [];
+    try {
+      if (setProcessingStatus) setProcessingStatus('Searching connected platforms...');
+      platformFiles = await multiPlatformSearchService.searchAllPlatforms(query, connections, setProcessingStatus);
+      console.log(`📁 Found ${platformFiles.length} files across all platforms`);
+    } catch (platformError) {
+      console.warn('Multi-platform search failed:', platformError);
+      // Provide helpful guidance for connection issues
+      if (platformError.message && platformError.message.includes('authentication')) {
+        platformFiles = [{
+          name: 'Platform Connection Issue',
+          content: `Unable to search platforms: ${platformError.message}. Please check your connections in the Connections panel.`,
+          type: 'error',
+          source: 'Multi-Platform'
+        }];
+      }
+    }
+
     // Fallback to traditional search if vector search fails or returns no results
     if (searchResults.length === 0) {
       console.log('🔍 Performing fallback search in uploaded files...');
       const uploadedFiles = await chromaService.getAllFiles();
       console.log(`📁 Found ${uploadedFiles.length} uploaded files to search`);
-            // Search all connected platforms
-        let platformFiles = [];
-        try {
-          if (setProcessingStatus) setProcessingStatus('Searching connected platforms...');
-          platformFiles = await multiPlatformSearchService.searchAllPlatforms(query, connections, setProcessingStatus);
-          console.log(`📁 Found ${platformFiles.length} files across all platforms`);
-        } catch (platformError) {
-          console.warn('Multi-platform search failed:', platformError);
-          // Provide helpful guidance for connection issues
-          if (platformError.message && platformError.message.includes('authentication')) {
-            platformFiles = [{
-              name: 'Platform Connection Issue',
-              content: `Unable to search platforms: ${platformError.message}. Please check your connections in the Connections panel.`,
-              type: 'error',
-              source: 'Multi-Platform'
-            }];
-          }
-        }
       
-      const allFiles = [...uploadedFiles, ...platformFiles];
+      const allFiles = [...platformFiles, ...uploadedFiles];
       console.log(`📊 Total files for fallback search: ${allFiles.length}`);
       
       if (allFiles.length === 0) {
@@ -987,10 +989,14 @@ function App() {
       return;
     }
       
-    // Files found - check for specific data requests
+    // Files found - combine all search results (vector + platform)
+    const allSearchResults = [...searchResults, ...platformFiles];
+    console.log(`📊 Combined search results: ${allSearchResults.length} files`);
+    
+    // Check for specific data requests
     const lowerQuery = query.toLowerCase();
     if (lowerQuery.includes('shares') || lowerQuery.includes('amount') || lowerQuery.includes('value') || lowerQuery.includes('completed') || lowerQuery.includes('reachouts')) {
-      const relevantFiles = searchResults.slice(0, 3);
+      const relevantFiles = allSearchResults.slice(0, 3);
       sources = relevantFiles.map(file => ({
         name: file.name,
         platform: file.platform,

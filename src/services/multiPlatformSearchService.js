@@ -14,14 +14,41 @@ class MultiPlatformSearchService {
     };
   }
 
-  // Get all connected platforms
+  // Get all connected and enabled platforms
   getConnectedPlatforms(connections) {
-    return Object.keys(connections).filter(platformId => 
+    const connectedPlatforms = Object.keys(connections).filter(platformId => 
       connections[platformId]?.connected && connections[platformId]?.enabled
     );
+    console.log('🔍 Connected and enabled platforms:', connectedPlatforms);
+    console.log('🔍 All connections status:', Object.keys(connections).map(id => ({
+      platform: id,
+      connected: connections[id]?.connected,
+      enabled: connections[id]?.enabled
+    })));
+    return connectedPlatforms;
   }
 
-  // Search across all connected platforms
+  // Detect platform preference from query
+  detectPlatformFromQuery(query) {
+    const queryLower = query.toLowerCase();
+    
+    if (queryLower.includes('github') || queryLower.includes('repository') || queryLower.includes('repo')) {
+      return 'github';
+    }
+    if (queryLower.includes('canva') || queryLower.includes('design')) {
+      return 'canva';
+    }
+    if (queryLower.includes('notion') || queryLower.includes('page')) {
+      return 'notion';
+    }
+    if (queryLower.includes('google drive') || queryLower.includes('drive')) {
+      return 'googleDrive';
+    }
+    
+    return null;
+  }
+
+  // Search across all connected platforms with smart prioritization
   async searchAllPlatforms(query, connections, setProcessingStatus) {
     const connectedPlatforms = this.getConnectedPlatforms(connections);
     console.log(`🔍 Searching across ${connectedPlatforms.length} connected platforms:`, connectedPlatforms);
@@ -31,13 +58,39 @@ class MultiPlatformSearchService {
       return [];
     }
 
+    // Detect preferred platform from query
+    const preferredPlatform = this.detectPlatformFromQuery(query);
+    console.log('🎯 Detected preferred platform from query:', preferredPlatform);
+
     const allResults = [];
     const searchPromises = [];
 
-    // Search each connected platform
-    for (const platformId of connectedPlatforms) {
+    // Search preferred platform first if detected and connected
+    if (preferredPlatform && connectedPlatforms.includes(preferredPlatform)) {
+      console.log(`🚀 Prioritizing ${preferredPlatform} search based on query context`);
+      if (setProcessingStatus) setProcessingStatus(`Searching ${this.getPlatformName(preferredPlatform)} first...`);
+      
+      try {
+        const priorityResults = await this.searchPlatform(preferredPlatform, this.platformServices[preferredPlatform], query, setProcessingStatus);
+        const formattedResults = priorityResults.map(result => ({
+          ...result,
+          platform: preferredPlatform,
+          platformName: this.getPlatformName(preferredPlatform),
+          priority: true
+        }));
+        allResults.push(...formattedResults);
+        console.log(`✅ Priority search on ${preferredPlatform}: ${formattedResults.length} results`);
+      } catch (error) {
+        console.warn(`❌ Priority search on ${preferredPlatform} failed:`, error);
+      }
+    }
+
+    // Search remaining platforms in parallel
+    const remainingPlatforms = connectedPlatforms.filter(p => p !== preferredPlatform);
+    
+    for (const platformId of remainingPlatforms) {
       const service = this.platformServices[platformId];
-      if (service && typeof service.searchFiles === 'function') {
+      if (service && this.hasSearchMethod(platformId, service)) {
         console.log(`🔍 Starting search on ${platformId}...`);
         
         const searchPromise = this.searchPlatform(platformId, service, query, setProcessingStatus)
@@ -60,21 +113,36 @@ class MultiPlatformSearchService {
       }
     }
 
-    // Wait for all searches to complete
-    try {
-      const platformResults = await Promise.all(searchPromises);
-      
-      // Combine all results
-      platformResults.forEach(results => {
-        allResults.push(...results);
-      });
-
-      console.log(`🎯 Multi-platform search completed: ${allResults.length} total results`);
-      return allResults;
-    } catch (error) {
-      console.error('Multi-platform search error:', error);
-      return allResults; // Return partial results if some searches failed
+    // Wait for remaining searches to complete
+    if (searchPromises.length > 0) {
+      try {
+        const platformResults = await Promise.all(searchPromises);
+        
+        // Combine all results
+        platformResults.forEach(results => {
+          allResults.push(...results);
+        });
+      } catch (error) {
+        console.error('Multi-platform search error:', error);
+      }
     }
+
+    console.log(`🎯 Multi-platform search completed: ${allResults.length} total results`);
+    return allResults;
+  }
+
+  // Check if service has appropriate search method
+  hasSearchMethod(platformId, service) {
+    if (platformId === 'github') {
+      return typeof service.searchRepositories === 'function';
+    }
+    if (platformId === 'notion') {
+      return typeof service.searchPages === 'function';
+    }
+    if (platformId === 'canva') {
+      return typeof service.searchDesigns === 'function';
+    }
+    return typeof service.searchFiles === 'function';
   }
 
   // Search a specific platform with error handling
@@ -85,24 +153,43 @@ class MultiPlatformSearchService {
       }
 
       // Handle different service method signatures
-      if (platformId === 'googleDrive') {
-        return await service.searchFiles(query, setProcessingStatus);
-      } else if (platformId === 'github') {
-        return await service.searchRepositories(query);
+      if (platformId === 'github') {
+        // GitHub service might have different methods
+        if (typeof service.searchRepositories === 'function') {
+          return await service.searchRepositories(query);
+        } else if (typeof service.searchFiles === 'function') {
+          return await service.searchFiles(query);
+        }
       } else if (platformId === 'notion') {
-        return await service.searchPages(query);
+        // Notion service
+        if (typeof service.searchPages === 'function') {
+          return await service.searchPages(query);
+        } else if (typeof service.searchFiles === 'function') {
+          return await service.searchFiles(query);
+        }
       } else if (platformId === 'canva') {
-        return await service.searchDesigns(query);
+        // Canva service
+        if (typeof service.searchDesigns === 'function') {
+          return await service.searchDesigns(query);
+        } else if (typeof service.searchFiles === 'function') {
+          return await service.searchFiles(query);
+        }
       } else {
-        return await service.searchFiles(query);
+        // Default to searchFiles for other platforms
+        if (typeof service.searchFiles === 'function') {
+          return await service.searchFiles(query);
+        }
       }
+
+      console.warn(`No search method available for ${platformId}`);
+      return [];
     } catch (error) {
       console.error(`Error searching ${platformId}:`, error);
       throw error;
     }
   }
 
-  // Get human-readable platform name
+  // Get user-friendly platform name
   getPlatformName(platformId) {
     const names = {
       googleDrive: 'Google Drive',

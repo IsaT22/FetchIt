@@ -112,7 +112,7 @@ const ConnectionsManager = ({ connections, onConnect, onDisconnect, onViewChange
                     <input
                       type="checkbox"
                       checked={connection.enabled}
-                      onChange={() => onConnect(connectionId, !connection.enabled)}
+                      onChange={() => onConnect(connectionId, { toggle: true })}
                     />
                     <span className="toggle-slider"></span>
                   </label>
