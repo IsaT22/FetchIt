@@ -18,7 +18,7 @@ class GitHubService {
       // If not found, try the connection-based storage
       if (!encryptedToken) {
         console.log('🔍 GitHubService: Checking connection-based storage...');
-        const connectionData = encryptionService.getStoredCredentials('github');
+        const connectionData = encryptionService.getCredentials('github');
         console.log('🔍 GitHubService: Connection data:', connectionData ? 'FOUND' : 'NOT_FOUND');
         
         if (connectionData && connectionData.tokens && connectionData.tokens.access_token) {
