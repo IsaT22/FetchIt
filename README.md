@@ -68,17 +68,7 @@ src/
    ```
    
    Add your API keys to `.env`:
-   ```env
-   # Required for AI features
-   REACT_APP_OPENAI_API_KEY=your_openai_api_key_here
-   REACT_APP_COHERE_API_KEY=your_cohere_api_key_here
-   
-   # Optional for cloud storage
-   REACT_APP_FIREBASE_API_KEY=your_firebase_api_key_here
-   REACT_APP_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   REACT_APP_FIREBASE_PROJECT_ID=your_project_id
-   REACT_APP_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-   ```
+
 
 3. **Start the development server**:
    ```bash
@@ -230,8 +220,8 @@ npm run build
 ### Environment Variables for Production
 Ensure these are set in your production environment:
 ```env
-REACT_APP_OPENAI_API_KEY=your_production_openai_key
-REACT_APP_FIREBASE_API_KEY=your_production_firebase_key
+REACT_APP_OPENAI_API_KEY=sk-your-production-openai-key
+REACT_APP_FIREBASE_API_KEY=your-production-firebase-key
 # ... other Firebase config
 ```
 
