@@ -1,4 +1,4 @@
-import { encryptionService } from './encryptionService';
+import encryptionService from './encryptionService';
 
 class GitHubService {
   constructor() {
