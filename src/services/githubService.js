@@ -163,20 +163,27 @@ class GitHubService {
     try {
       const {
         sort = 'updated', // stars, forks, help-wanted-issues, updated
-        order = 'desc', // asc, desc
+        order = 'desc',
         per_page = 30,
         page = 1
       } = options;
 
+      // Enhanced search query - search user's repositories and public repos
+      const enhancedQuery = `${query} user:${await this.getCurrentUser().then(u => u.login).catch(() => '')} OR ${query}`;
+      
       const params = new URLSearchParams({
-        q: query,
+        q: enhancedQuery,
         sort,
         order,
         per_page: per_page.toString(),
         page: page.toString()
       });
 
-      return await this.makeAuthenticatedRequest(`/search/repositories?${params}`);
+      console.log('🔍 GitHub repository search query:', enhancedQuery);
+      const result = await this.makeAuthenticatedRequest(`/search/repositories?${params}`);
+      console.log(`📁 GitHub repository search found ${result.items?.length || 0} repositories`);
+      
+      return result;
     } catch (error) {
       console.error('Error searching repositories:', error);
       throw error;
@@ -188,20 +195,28 @@ class GitHubService {
     try {
       const {
         sort = 'indexed', // indexed, best-match
-        order = 'desc', // asc, desc
+        order = 'desc',
         per_page = 30,
         page = 1
       } = options;
 
+      // Enhanced code search - include user repositories
+      const user = await this.getCurrentUser().catch(() => ({ login: '' }));
+      const enhancedQuery = user.login ? `${query} user:${user.login}` : query;
+
       const params = new URLSearchParams({
-        q: query,
+        q: enhancedQuery,
         sort,
         order,
         per_page: per_page.toString(),
         page: page.toString()
       });
 
-      return await this.makeAuthenticatedRequest(`/search/code?${params}`);
+      console.log('🔍 GitHub code search query:', enhancedQuery);
+      const result = await this.makeAuthenticatedRequest(`/search/code?${params}`);
+      console.log(`📄 GitHub code search found ${result.items?.length || 0} code files`);
+      
+      return result;
     } catch (error) {
       console.error('Error searching code:', error);
       throw error;
