@@ -10,11 +10,30 @@ class NotionService {
   // Get stored access token
   getAccessToken() {
     try {
-      const encryptedTokens = localStorage.getItem('tokens_notion');
+      console.log('🔍 NotionService: Attempting to retrieve access token...');
+      
+      // First try the standard storage location
+      let encryptedTokens = localStorage.getItem('tokens_notion');
+      console.log('🔍 NotionService: tokens_notion in localStorage:', encryptedTokens ? 'FOUND' : 'NOT_FOUND');
+      
+      // If not found, try the connection-based storage
       if (!encryptedTokens) {
+        console.log('🔍 NotionService: Checking connection-based storage...');
+        const connectionData = encryptionService.getCredentials('notion');
+        console.log('🔍 NotionService: Connection data:', connectionData ? 'FOUND' : 'NOT_FOUND');
+        
+        if (connectionData && connectionData.tokens && connectionData.tokens.access_token) {
+          console.log('🔑 Found Notion token in connection storage');
+          return connectionData.tokens.access_token;
+        }
+      }
+      
+      if (!encryptedTokens) {
+        console.error('❌ No Notion access token found in any storage location');
         throw new Error('No Notion access token found');
       }
       
+      console.log('🔑 Found Notion token in localStorage, decrypting...');
       const tokens = encryptionService.decrypt(encryptedTokens);
       return tokens.access_token;
     } catch (error) {
@@ -120,6 +139,71 @@ class NotionService {
       console.error('Error querying Notion database:', error);
       throw error;
     }
+  }
+
+  // Search pages for multi-platform search service
+  async searchPages(query) {
+    try {
+      console.log('🔍 Searching Notion pages with query:', query);
+      
+      const searchResults = await this.search(query, {
+        filter: {
+          value: 'page',
+          property: 'object'
+        }
+      });
+
+      // Format results for multi-platform search
+      const formattedResults = searchResults.results.map(page => ({
+        id: page.id,
+        name: this.getPageTitle(page),
+        content: this.getPagePreview(page),
+        webViewLink: page.url,
+        type: 'page',
+        lastEditedTime: page.last_edited_time,
+        createdTime: page.created_time
+      }));
+
+      console.log(`✅ Found ${formattedResults.length} Notion pages`);
+      return formattedResults;
+    } catch (error) {
+      console.error('Error searching Notion pages:', error);
+      throw error;
+    }
+  }
+
+  // Helper to extract page title
+  getPageTitle(page) {
+    if (page.properties && page.properties.title) {
+      const titleProperty = page.properties.title;
+      if (titleProperty.title && titleProperty.title.length > 0) {
+        return titleProperty.title[0].plain_text;
+      }
+    }
+    
+    // Try other common title properties
+    for (const [key, property] of Object.entries(page.properties || {})) {
+      if (property.type === 'title' && property.title && property.title.length > 0) {
+        return property.title[0].plain_text;
+      }
+    }
+    
+    return 'Untitled Page';
+  }
+
+  // Helper to get page preview content
+  getPagePreview(page) {
+    // Try to get preview from properties
+    const properties = page.properties || {};
+    const previewText = [];
+    
+    for (const [key, property] of Object.entries(properties)) {
+      if (property.type === 'rich_text' && property.rich_text && property.rich_text.length > 0) {
+        previewText.push(property.rich_text[0].plain_text);
+      }
+    }
+    
+    return previewText.join(' ').substring(0, 200) || 'No preview available';
   }
 
   // Extract text content from blocks

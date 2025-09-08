@@ -52,6 +52,13 @@ class OAuthService {
         redirectUri: `${window.location.origin}/auth/callback/index.html`,
         scope: 'design:read design:content:read',
         authUrl: 'https://www.canva.com/api/oauth/authorize'
+      },
+      notion: {
+        clientId: process.env.REACT_APP_NOTION_CLIENT_ID,
+        clientSecret: process.env.REACT_APP_NOTION_CLIENT_SECRET,
+        redirectUri: `${window.location.origin}/auth/callback/index.html`,
+        scope: 'read',
+        authUrl: 'https://api.notion.com/v1/oauth/authorize'
       }
     };
   }
