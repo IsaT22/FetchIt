@@ -9,10 +9,24 @@ class GitHubService {
   // Get access token from encrypted storage
   async getAccessToken() {
     try {
-      const encryptedToken = localStorage.getItem('github_access_token');
+      // First try the standard storage location
+      let encryptedToken = localStorage.getItem('github_access_token');
+      
+      // If not found, try the connection-based storage
       if (!encryptedToken) {
+        const connectionData = encryptionService.getStoredCredentials('github');
+        if (connectionData && connectionData.tokens && connectionData.tokens.access_token) {
+          console.log('🔑 Found GitHub token in connection storage');
+          return connectionData.tokens.access_token;
+        }
+      }
+      
+      if (!encryptedToken) {
+        console.error('❌ No GitHub access token found in any storage location');
         throw new Error('No GitHub access token found');
       }
+      
+      console.log('🔑 Found GitHub token in localStorage, decrypting...');
       return await encryptionService.decrypt(encryptedToken);
     } catch (error) {
       console.error('Error retrieving GitHub access token:', error);

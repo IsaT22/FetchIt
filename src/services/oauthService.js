@@ -408,6 +408,20 @@ class OAuthService {
       const encryptedTokens = encryptionService.encrypt(tokens);
       localStorage.setItem(`tokens_${platformId}`, encryptedTokens);
       
+      // For GitHub, also store in the expected location for githubService
+      if (platformId === 'github' && tokens.access_token) {
+        const encryptedAccessToken = await encryptionService.encrypt(tokens.access_token);
+        localStorage.setItem('github_access_token', encryptedAccessToken);
+        console.log('✅ GitHub access token stored for githubService compatibility');
+      }
+      
+      // Store in connection-based storage for multi-platform service
+      encryptionService.storeCredentials(platformId, {
+        connected: true,
+        tokens: tokens,
+        connectedAt: new Date().toISOString()
+      });
+      
       // Clean up OAuth state
       localStorage.removeItem(`oauth_state_${platformId}`);
       
