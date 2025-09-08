@@ -15,12 +15,16 @@ import TermsOfUse from './components/TermsOfUse';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import driveService from './services/driveService';
 import chromaService from './services/chromaService';
-import aiAgentService from './services/aiAgentService';
-import embeddingService from './services/embeddingService';
-import storageService from './services/storageService';
-// import encryptionService from './services/encryptionService';
 import llmService from './services/llmService';
-// import supabaseService from './services/supabaseService';
+import embeddingService from './services/embeddingService';
+import encryptionService from './services/encryptionService';
+import oauthService from './services/oauthService';
+import tokenValidationService from './services/tokenValidationService';
+import supabaseService from './services/supabaseService';
+import feedbackService from './services/feedbackService';
+import storageService from './services/storageService';
+import multiPlatformSearchService from './services/multiPlatformSearchService';
+import aiAgentService from './services/aiAgentService';
 import userStorageService from './services/userStorageService';
 // import canvaService from './services/canvaService';
 
@@ -490,65 +494,34 @@ function App() {
       console.log('🔍 Performing fallback search in uploaded files...');
       const uploadedFiles = await chromaService.getAllFiles();
       console.log(`📁 Found ${uploadedFiles.length} uploaded files to search`);
-            // Also search Google Drive files if connected
-        let driveFiles = [];
-        if (connections.googleDrive?.connected) {
-          try {
-            const queryLower = query.toLowerCase();
-            
-            // Strategic search for ClotGuard testimonials
-            if (queryLower.includes('clotguard') && (queryLower.includes('testimony') || queryLower.includes('testimonial') || queryLower.includes('names'))) {
-              if (setProcessingStatus) setProcessingStatus('Strategic search: Looking for ClotGuard testimonials...');
-              
-              // Use strategic search to find testimonials file in ClotGuard folder
-              const tokens = await driveService.getValidTokens();
-              if (tokens) {
-                driveFiles = await driveService.findSpecificFileInProject('ClotGuard', 'testimonial', tokens, setProcessingStatus);
-                console.log(`🎯 Strategic search found ${driveFiles.length} ClotGuard testimonial files`);
-              }
-              
-              // If strategic search didn't find anything, fall back to regular search
-              if (driveFiles.length === 0) {
-                if (setProcessingStatus) setProcessingStatus('Fallback: Searching all Google Drive files...');
-                driveFiles = await driveService.searchFiles(query, setProcessingStatus);
-                
-                // Filter for ClotGuard-related files
-                const clotGuardTestimonials = driveFiles.filter(f => 
-                  (f.name && f.name.toLowerCase().includes('clotguard') && f.name.toLowerCase().includes('testimonial')) ||
-                  (f.name && f.name.toLowerCase().includes('testimonial') && f.content && f.content.toLowerCase().includes('clotguard'))
-                );
-                
-                if (clotGuardTestimonials.length > 0) {
-                  console.log(`📁 Fallback search found ${clotGuardTestimonials.length} ClotGuard testimonial files`);
-                  driveFiles = clotGuardTestimonials.slice(0, 5);
-                }
-              }
-            } else {
-              // Regular search for non-ClotGuard queries
-              if (setProcessingStatus) setProcessingStatus('Searching Google Drive...');
-              driveFiles = await driveService.searchFiles(query, setProcessingStatus);
-              console.log(`📁 Found ${driveFiles.length} Google Drive files`);
-            }
-          } catch (driveError) {
-            console.warn('Google Drive search failed:', driveError);
-            // If it's an authentication error, provide helpful guidance
-            if (driveError.message.includes('authenticate') || driveError.message.includes('connect')) {
-              response = `${driveError.message}\n\nTo connect Google Drive:\n1. Click the sidebar menu\n2. Go to "Connections"\n3. Click "Connect" next to Google Drive\n4. Sign in with your Google account`;
-              return;
-            }
+            // Search all connected platforms
+        let platformFiles = [];
+        try {
+          if (setProcessingStatus) setProcessingStatus('Searching connected platforms...');
+          platformFiles = await multiPlatformSearchService.searchAllPlatforms(query, connections, setProcessingStatus);
+          console.log(`📁 Found ${platformFiles.length} files across all platforms`);
+        } catch (platformError) {
+          console.warn('Multi-platform search failed:', platformError);
+          // Provide helpful guidance for connection issues
+          if (platformError.message && platformError.message.includes('authentication')) {
+            platformFiles = [{
+              name: 'Platform Connection Issue',
+              content: `Unable to search platforms: ${platformError.message}. Please check your connections in the Connections panel.`,
+              type: 'error',
+              source: 'Multi-Platform'
+            }];
           }
-        } else {
-          console.log('📝 Google Drive not connected - user should connect for file access');
         }
       
-      const allFiles = [...uploadedFiles, ...driveFiles];
+      const allFiles = [...uploadedFiles, ...platformFiles];
       console.log(`📊 Total files for fallback search: ${allFiles.length}`);
       
       if (allFiles.length === 0) {
-        if (!connections.googleDrive?.connected) {
-          response = "I don't have access to any files yet. To get started:\n\n1. **Connect Google Drive**: Click the sidebar menu → Connections → Connect Google Drive\n2. **Upload files**: Use the file upload feature in the chat\n\nOnce connected, I'll be able to search through your documents and provide intelligent responses based on your files.";
+        const connectedPlatforms = Object.keys(connections).filter(p => connections[p]?.connected);
+        if (connectedPlatforms.length === 0) {
+          response = "I don't have access to any files yet. To get started:\n\n1. **Connect platforms**: Click the sidebar menu → Connections → Connect your platforms (Google Drive, GitHub, Notion, Canva)\n2. **Upload files**: Use the file upload feature in the chat\n\nOnce connected, I'll be able to search through your documents and provide intelligent responses based on your files.";
         } else {
-          response = "I don't have access to any files yet. Please upload some files or make sure your Google Drive contains documents I can search through.";
+          response = `I don't have access to any files yet from your connected platforms (${connectedPlatforms.join(', ')}). Please make sure your platforms contain documents I can search through, or upload files directly.`;
         }
       } else {
         // Extract keywords from query for better matching
